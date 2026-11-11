@@ -1,0 +1,92 @@
+% !TeX program = xelatex
+% =====================================================================
+%  机器智能课程设计 · 第 4 个项目：CogECI 复现报告
+%  编译方式：xelatex report.tex  (连续编译两遍以生成目录与交叉引用)
+% =====================================================================
+\documentclass[UTF8,a4paper,zihao=-4,fontset=windows]{ctexart}
+
+% ---------- 版面 ----------
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.6cm,right=2.6cm]{geometry}
+\linespread{1.45}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+
+% ---------- 字体与符号 ----------
+\usepackage{amsmath,amssymb,bm}
+\usepackage{newtxtext,newtxmath}
+
+% ---------- 图表 ----------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{tabularx}
+\usepackage{threeparttable}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelsep=quad}
+\usepackage{xcolor}
+\definecolor{deepblue}{RGB}{28,63,120}
+\definecolor{lightgray}{RGB}{242,244,247}
+
+% ---------- 代码 ----------
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{lightgray},
+  keywordstyle=\color{deepblue}\bfseries,
+  commentstyle=\color{gray},
+  showstringspaces=false,
+  columns=fullflexible,
+  xleftmargin=0.5em,
+  aboveskip=0.6em,
+  belowskip=0.6em
+}
+
+% ---------- 其它 ----------
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=3pt,parsep=0pt}
+\usepackage[colorlinks=true,linkcolor=deepblue,citecolor=deepblue,urlcolor=deepblue]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+
+% ---------- 标题信息 ----------
+\newcommand{\projectname}{第 4 个项目：CogECI —— 面向文档级事件因果识别的一致性图学习}
+\newcommand{\groupname}{第六组}
+\newcommand{\memberA}{张旭}
+\newcommand{\memberB}{路文博}
+
+\title{\bfseries \projectname\\[6pt] \large 复现报告}
+\author{\groupname\quad \memberA\quad \memberB\\
+  \small 华中科技大学\ 电子信息与通信学院}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% ===================== 摘要 =====================
+\input{sections/00_abstract}
+
+\tableofcontents
+\newpage
+
+\input{sections/01_intro}
+\input{sections/02_background}
+\input{sections/03_method}
+\input{sections/04_impl}
+\input{sections/05_pseudo}
+\input{sections/06_experiment}
+\input{sections/07_engineering}
+\input{sections/08_discussion}
+\input{sections/09_reproduce}
+
+\input{sections/refs}
+
+\appendix
+\input{sections/10_appendix}
+
+\end{document}

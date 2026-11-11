@@ -1,0 +1,78 @@
+\section{引言}
+
+\subsection{任务背景}
+
+事件因果识别（Event Causality Identification, ECI）的目标是判断文本中两个事件提及之间是否存在
+因果关系。它是事件知识图谱构建、事理逻辑推理、风险预警与自动摘要等下游应用的基础环节。
+按判定范围的粒度，ECI 可分为\emph{句内}（intra-sentence，两个事件出现在同一句）与
+\emph{跨句}（inter-sentence，两个事件分处不同句）两类；后者需要模型跨越句子边界聚合证据，
+是文档级 ECI 的主要难点。
+
+设一篇文档被切分为 $n$ 个句子 $\mathcal{S}=\{s_1,\dots,s_n\}$，
+其中包含 $m$ 个事件提及 $\mathcal{E}=\{e_1,\dots,e_m\}$，
+每个事件提及 $e_k$ 标注了它所在的句子编号 $\sigma(k)\in\{1,\dots,n\}$ 与触发词片段。
+ECI 的输入是一组候选事件对 $(e_i,e_j)$，输出是它们之间因果关系的判定结果。
+按输出空间的不同，存在两种常见评测口径：
+
+\begin{itemize}
+  \item \textbf{因果方向识别}（Causality Direction Identification）：三分类，
+        标签为 $\{\text{NONE},\text{CAUSE},\text{EFFECT}\}$，需要区分"因"与"果"；
+  \item \textbf{因果存在性识别}（Causality Existence Identification）：二分类，
+        标签为 $\{\text{NONE},\text{CAUSAL}\}$，只判断有无因果、不区分方向。
+\end{itemize}
+
+本复现针对\emph{存在性}口径。该选择的依据见第~\ref{sec:protocol} 节。
+
+\subsection{复现对象}
+
+本文复现的 CogECI 属于 iLIF~\cite{ilif} 一脉。iLIF 的核心观察是：文档中的因果关系不是一次性
+判定的，而应通过\emph{迭代}逐步显式化——模型先基于当前事件表示预测一批因果边，把高置信度的边
+加入因果图，用图卷积更新事件表示，再重新预测；当相邻两轮预测的结构差异足够小时停止。
+CogECI 沿用这一骨架，并针对"事件对表示与文档句子之间的证据对齐"这一薄弱环节，
+引入句子图模块、双流因果推理模块与上下文对齐损失，同时借助大语言模型为每个正例事件对
+预先标注\emph{支撑句集合}（grounded context），作为弱监督信号约束上述对齐。
+
+\subsection{本项目的实际处境与应对}
+
+官方的代码仓库在发布时并不完整，且 CogECI 原文发表于 Elsevier 期刊，未能取得全文。
+这两点决定了本次复现的工作重心：
+
+\begin{enumerate}
+  \item \textbf{仓库不完整。}缺失的四类文件中，\texttt{utils.py} 被 \texttt{main.py} 直接导入，
+        缺它程序根本起不来；\texttt{data/database/exist/*.pkl} 是训练必需的特征缓存；
+        \texttt{data/examples/llm/*.csv} 是伪标签，\emph{缺失时代码会静默回退为全零标签而不报错}——
+        这是最危险的一处，因为它会让训练"看起来跑通、实际学不到东西"。
+  \item \textbf{原文不可得。}因此本文不追求"逐位对齐论文表格数值"，
+        而是以官方代码为准重建方法描述，并以 iLIF 论文公开的存在性口径结果作为合理性锚点。
+  \item \textbf{算力受限。}实验在单张 6\,GB 显存的笔记本显卡（RTX 4050 Laptop）上完成。
+        原始实现按 RTX 3090（24\,GB）设计，直接运行会因显存溢出而把张量换出到主机内存，
+        实测速度下降约 5 倍，5 折全量外推需要约 47 小时，无法在课程周期内完成。
+        第~\ref{sec:engineering} 节详述为此所做的工程改造及其数值等价性验证。
+  \item \textbf{LLM 额度耗尽。}Stage 1 需要约 1.1 万次调用（两个变体各 5\,478 次）。
+        打标进行到 1\,752 次时平台免费额度耗尽，训练侧无法等待。
+        第~\ref{sec:pseudo} 节给出规则法替代方案，并用已经完成的 545 条 LLM 标注做了一致性检验。
+\end{enumerate}
+
+\subsection{主要贡献}
+
+\begin{enumerate}
+  \item 补齐并跑通了官方仓库，形成一份可复现的、端到端的执行清单（第~\ref{sec:impl} 节）。
+  \item 用三条独立证据确定了评测口径，并修正了仓库中沿用自 iLIF 的错误命名
+        （日志里的 "Causality Direction Identification" 在二分类配置下并不成立）。
+  \item 提出并验证了 LLM 伪标签的规则法离线替代：句级精确率 0.985，
+        97.4\% 的样本中规则集被 LLM 答案完全包含（第~\ref{sec:pseudo} 节）。
+  \item 对原始实现做了 5 处向量化改造与 1 处显存优化，取得 12--17 倍加速，
+        并以逐元素比对证明改写在数值上等价（第~\ref{sec:engineering} 节）。
+  \item 完成 5 折交叉验证与超参消融，给出与 iLIF 基线可比的结果（第~\ref{sec:exp} 节）。
+\end{enumerate}
+
+\subsection{报告组织}
+
+第~\ref{sec:background} 节介绍任务定义与相关工作；
+第~\ref{sec:method} 节阐述 CogECI 的方法结构；
+第~\ref{sec:impl} 节交代复现实现与数据细节；
+第~\ref{sec:pseudo} 节讨论伪标签方案及其一致性验证；
+第~\ref{sec:exp} 节给出实验设置与结果；
+第~\ref{sec:engineering} 节说明工程优化与等价性验证；
+第~\ref{sec:discussion} 节讨论局限；
+第~\ref{sec:reproduce} 节给出复现指南与代码地址。

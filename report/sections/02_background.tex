@@ -1,0 +1,84 @@
+\section{任务定义与相关工作}
+\label{sec:background}
+
+\subsection{数据集：EventStoryLine v0.9}
+
+EventStoryLine（ESC）v0.9~\cite{esc} 是文档级事件因果识别最常用的基准之一。
+它由 22 个话题（topic）下的 258 篇新闻文档构成，每篇文档标注了事件提及及其句内/跨句的因果关系。
+本文按官方仓库随附的特征缓存统计得到的数据规模如表~\ref{tab:esc} 所示。
+
+\begin{table}[H]
+\centering
+\caption{ESC 数据集实测规模（由仓库 pkl 直接统计）}
+\label{tab:esc}
+\begin{tabular}{lrrrrr}
+\toprule
+划分 & 文档数 & 事件对数 & 句内对 & 跨句对 & 因果正例（占比）\\
+\midrule
+train & 233 & 61\,065 & 8\,999  & 52\,066 & 4\,933（8.08\%）\\
+dev   & 25  & 9\,514  & 1\,348  & 8\,166  & 545（5.73\%）\\
+\midrule
+合计  & 258 & 70\,579 & 10\,347 & 60\,232 & 5\,478（7.76\%）\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+正例总数 5\,478 这一数字需要特别说明。ESC 原始标注的因果对为 5\,625 条
+（句内 1\,770 + 跨句 3\,855）；iLIF 在预处理时剔除了与事件共指冲突的样本，
+并要求所得因果图满足有向无环（DAG）约束，最终保留 5\,478 条（句内 1\,751 + 跨句 3\,727）~\cite{ilif}。
+本文实测 \texttt{train} 的 4\,933 条与 \texttt{dev} 的 545 条之和恰为 5\,478，
+说明 CogECI 直接沿用了 iLIF 预处理后的数据。这也解释了为什么本项目报出的正例数
+与文献中常见的 5\,625 不一致——差异来自预处理，而非统计错误。
+
+\subsection{方法脉络}
+
+早期工作依赖\emph{模式匹配}（如因果连接词词典）与统计特征，在跨句、隐式因果上泛化很差。
+随后的神经方法把事件对编码为向量后接分类器，代表做法是用预训练语言模型
+（BERT~\cite{bert}、RoBERTa~\cite{roberta}）分别编码两个事件的上下文再拼接判定。
+这类方法的问题是：两个事件各自编码，模型看不到"两者之间的关系"，也难以利用文档其余部分的证据。
+
+图神经网络把文档建模为事件图后缓解了这一问题。ERGO~\cite{ergo} 在事件图上做消息传递，
+SENDIR~\cite{sendir} 进一步引入了句法结构。但它们普遍采用"一次建图、一次推理"的范式。
+
+\subsection{iLIF：迭代式因果图}
+
+iLIF~\cite{ilif} 指出一次建图并不充分，提出迭代式框架。其在 ESC 上的存在性识别结果为
+$F_1=62.5$（句内 71.2 / 跨句 59.1），是本文的主要参照基线。其关键设计为：
+
+\begin{itemize}
+  \item 用 BERT 编码句子，取事件触发词片段内子词表示的均值作为事件表示；
+  \item 每轮用当前事件对表示预测因果标签，把置信度高于阈值 $\omega$ 的边加入因果图，
+        边的权重按句内/跨句分别取 $\beta$；
+  \item 用图卷积在因果图上更新事件表示，进入下一轮；
+  \item 当相邻两轮预测的结构差异不超过 $\delta$ 时早停；
+  \item 损失按轮次折扣：$\mathcal{L}=\sum_{l}\frac{1}{l}\mathcal{L}^{(l)}$，抑制后期轮次的震荡。
+\end{itemize}
+
+在 ESC 上，iLIF 取 $\omega=0.6$、$\delta=2$、最大轮数 $L=9$、最小轮数 $2$。
+
+\subsection{CogECI 相对 iLIF 的改进}
+
+CogECI 保留了上述迭代骨架，针对"事件对表示与句子级证据未显式对齐"这一薄弱点引入三个模块
+（详见第~\ref{sec:method} 节）：句子图模块（SGM）在句子层面先做一次图卷积以平滑句表示；
+双流因果推理模块（DSCRM）为句内与跨句两路配备完全独立的参数；
+上下文对齐损失（CGL）用 LLM 预标注的支撑句集合作为弱监督，约束"事件对表示"与"句表示"的相似度分布。
+
+\subsection{评测口径的确认}
+\label{sec:protocol}
+
+CogECI 原文未能取得全文，其主表究竟报的是存在性还是方向，必须自行判定。
+本文用三条相互独立的证据交叉确认，结论为\textbf{存在性二分类}。
+
+\begin{enumerate}
+  \item \textbf{标签分布。}仓库默认的 \texttt{data/database/exist/} 下 pkl 的 \texttt{target}
+        只取 $\{0,1\}$，正例全为 1，说明方向信息已被统一；而 \texttt{data/database/} 下的 pkl
+        取 $\{0,1,2\}$（train 中 2\,259 条 CAUSE、2\,674 条 EFFECT），对应方向口径。
+  \item \textbf{超参默认值。}\texttt{parameter.py} 将类别数由 iLIF 的 3 改为 \texttt{--no\_of\_classes 2}，
+        且 \texttt{--cache\_path} 默认指向 \texttt{exist}。
+  \item \textbf{正例总数。}见第~\ref{sec:background} 节开头的交叉验证：
+        4\,933 + 545 = 5\,478，与 iLIF 预处理后的正例数精确吻合。
+\end{enumerate}
+
+顺带指出一处仓库瑕疵：\texttt{main.py} 的日志文案沿用了 iLIF 的
+"Causality Direction Identification"，在二分类配置下该表述不成立，应读作"因果存在性识别"。
+本文所有结果均按存在性口径解读。

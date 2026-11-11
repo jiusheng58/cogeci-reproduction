@@ -1,0 +1,43 @@
+# ---- 环境 ----
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 体积过大的二进制产物（获取方式见 README） ----
+checkpoints/
+_repo/checkpoints/
+_repo/model/bert-base-uncased/
+_repo/data/database/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# ---- 凭据 ----
+.env
+_repo/.env
+*.key
+
+# ---- 运行时产物 ----
+logout/
+_repo/logout/
+_dry_run/
+
+# ---- LaTeX 中间文件 ----
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.synctex.gz
+report/*.fls
+report/*.fdb_latexmk
+report/sections/*.aux
+
+# ---- 系统 ----
+Thumbs.db
+desktop.ini
+.DS_Store
+_ilif/
+_ilif_parameter.py
+_ilif_utils.py

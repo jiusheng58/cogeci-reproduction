@@ -1,0 +1,78 @@
+\begin{center}
+  \textbf{\large 摘\quad 要}
+\end{center}
+
+\vspace{-0.5em}
+
+本文复现了文档级事件因果识别（Event Causality Identification, ECI）方法
+\textbf{CogECI}，并在 EventStoryLine v0.9（ESC）数据集上完成 5 折交叉验证。
+CogECI 在 iLIF 的迭代式因果图骨架之上，引入\emph{句子图模块}（Sentence Graph Module, SGM）、
+\emph{双流因果推理模块}（Dual-Stream Causal Reasoning Module, DSCRM）以及
+\emph{上下文对齐损失}（Context Grounding Loss, CGL），
+其第一阶段依赖大语言模型（LLM）为每个因果正例事件对标注"支撑该因果关系的句子集合"。
+
+本项目的主要工作与结论如下。
+
+\begin{enumerate}
+  \item \textbf{完整打通了官方仓库的复现链路。}官方代码仓发布时缺失 \texttt{utils.py}、
+        特征缓存 \texttt{*.pkl}、伪标签 CSV 与 BERT 权重共四类文件，其中 \texttt{utils.py}
+        被 \texttt{main.py} 直接 \texttt{import}，缺失即无法启动。本文补齐上述依赖并逐一记录来源。
+  \item \textbf{确认了评测口径。}通过标签分布实测（\texttt{exist} 版 pkl 正例全为 1）、
+        正例总数交叉验证（4\,933 + 545 = 5\,478，与 iLIF 论文预处理后的正例数完全一致）
+        与超参默认值三条独立证据，确认默认配置对应\textbf{因果存在性二分类}口径。
+  \item \textbf{给出了 LLM 打标的可离线替代方案并做了定量检验。}受平台免费额度耗尽所限，
+        Stage 1 未按论文原方案完成全量 LLM 打标。本文设计基于事件所在句的\emph{规则法}伪标签，
+        并用已完成的 545 条 Qwen3.8-27B 标注做一致性对照：规则集相对 LLM 选句的
+        \textbf{句级精确率 0.985}、F1 0.853，且 \textbf{97.4\%} 的样本中 LLM 所选句子恰好包含
+        两个事件所在句，说明规则法捕捉到了 LLM 选句的核心，属"高精度、稍低召回"的保守替代。
+  \item \textbf{完成了工程优化并严格验证了数值等价性。}原始实现在单文档上仅约 8\% GPU 利用率，
+        5 折 $\times$ 30 轮外推需约 47 小时。本文对 5 处热点做了向量化改写，
+        实测加速 \textbf{12--17 倍}，且损失值偏差为 0、预测概率偏差 $<1.2\times10^{-7}$、
+        梯度范数偏差 $<10^{-8}$、图边选取结果逐元素相等。同时引入梯度检查点，
+        将峰值显存由 6\,824\,MB 降至 2\,483\,MB，使 6\,GB 显存笔记本可完成全量训练。
+  \item \textbf{主实验结果。}在因果存在性口径下，5 折平均
+        $P=0.6812$、$R=0.6225$、$\bm{F_1=0.6493}$，
+        其中句内 $F_1=0.7745$、跨句 $F_1=0.5882$。
+        相较 iLIF 论文在 ESC 上报告的存在性 $F_1=62.5$（句内 71.2 / 跨句 59.1），
+        整体提升 2.4 个点，且增益主要来自句内场景。
+\end{enumerate}
+
+\vspace{0.5em}
+\noindent\textbf{关键词：}事件因果识别；文档级；图神经网络；上下文对齐；伪标签；复现研究
+
+\vspace{1.2em}
+\begin{center}
+  \rule{0.85\textwidth}{0.4pt}
+\end{center}
+\vspace{0.3em}
+
+\begin{center}
+  \textbf{\large Abstract}
+\end{center}
+
+\vspace{-0.5em}
+\noindent
+This report reproduces \textbf{CogECI}, a document-level event causality identification
+method, and evaluates it on EventStoryLine v0.9 with 5-fold cross-validation.
+CogECI augments the iterative causal-graph backbone of iLIF with a Sentence Graph Module (SGM),
+a Dual-Stream Causal Reasoning Module (DSCRM), and a Context Grounding Loss (CGL);
+its first stage relies on an LLM to label, for each positive event pair, the set of sentences
+that ground the causal relation.
+
+We first repair the released repository (four categories of files are missing, including
+\texttt{utils.py} which is imported by \texttt{main.py}), and confirm the evaluation protocol
+to be \emph{causality existence} binary classification via three independent lines of evidence.
+Due to exhaustion of the LLM free quota, we replace Stage-1 LLM labelling with a rule-based
+offline scheme, and validate it against 545 Qwen3.8-27B annotations: sentence-level precision
+0.985 and F1 0.853, with 97.4\% of LLM answers containing exactly the two event-bearing sentences.
+We further vectorize five hotspots of the original implementation, achieving a 12--17$\times$
+speed-up with numerically identical behaviour (loss difference 0, prediction difference
+$<1.2\times10^{-7}$), and cut peak VRAM from 6\,824\,MB to 2\,483\,MB via gradient checkpointing.
+The final 5-fold result is $P=0.6812$, $R=0.6225$, $F_1=0.6493$,
+improving over the iLIF existence baseline of 62.5 on ESC.
+
+\vspace{0.6em}
+\noindent\textbf{Keywords:} event causality identification; document-level; graph neural network;
+context grounding; pseudo labelling; reproduction study
+
+\newpage

@@ -1,0 +1,108 @@
+\section{复现指南}
+\label{sec:reproduce}
+
+\subsection{代码地址}
+
+本项目全部源代码、工具脚本、伪标签生成器与实验日志已发布在 GitHub：
+
+\begin{center}
+\fbox{\parbox{0.86\textwidth}{\centering
+\url{https://github.com/jiusheng58/cogeci-reproduction}
+}}
+\end{center}
+
+仓库不含数据集、BERT 权重与训练权重（体积原因），获取方式见下文。
+训练好的 5 折权重（\texttt{checkpoints/E1\_full\_rulelabels/fold\{1..5\}\_best.pt}，
+各约 535\,MB）随课程提交的压缩包一同提供。
+
+\subsection{目录结构}
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+cogeci-reproduction/
+|-- _repo/                        官方仓库（含本项目补丁）
+|   |-- main.py                   训练主循环（+ 权重保存、日志路径修正）
+|   |-- parameter.py              超参（+ --grad_ckpt, --cgl_w）
+|   |-- utils.py                  自 iLIF 补齐
+|   |-- model/
+|   |   |-- model.py              网络定义（5 处性能补丁 + CGL 权参数化）
+|   |   |-- _orig_model.py        原版备份（用于等价性验证）
+|   |   `-- bert-base-uncased/    需自行下载
+|   |-- data/
+|   |   |-- database/exist/*.pkl  自 iLIF 补齐
+|   |   `-- examples/llm/         伪标签 CSV（本项目生成）
+|   `-- checkpoints/<实验名>/     每折最优权重
+|-- tools/
+|   |-- event_span.py             子词位置 -> 词级 span 反推
+|   |-- pseudo_from_rule.py       规则法伪标签生成
+|   |-- label_sentences.py        LLM 打标（含断点续跑、关思考）
+|   |-- agree_rule_llm.py         规则 vs LLM 一致性对照
+|   |-- agree_by_reltype.py       按 intra/inter 拆分对照
+|   |-- validate_csv.py           训练前伪标签终检
+|   |-- equiv_patch.py            性能补丁数值等价性验证
+|   |-- bench_vram.py             显存峰值实测
+|   `-- estimate_tokens.py        打标 token 消耗估算
+|-- report/                       LaTeX 报告源文件（本文件所在目录）
+`-- logs_*.txt                    各实验完整训练日志
+\end{lstlisting}
+
+\subsection{复现步骤}
+
+\paragraph{步骤 1：环境}
+
+\begin{lstlisting}[language=bash]
+python -m venv .venv
+.venv/Scripts/pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+.venv/Scripts/pip install torch_geometric==2.5.3 transformers==4.46.3 ^
+    scikit-learn tqdm networkx openai
+\end{lstlisting}
+
+\noindent 注意 \texttt{transformers} 必须为 4.x（5.x 已移除 \texttt{AdamW}）。
+
+\paragraph{步骤 2：补齐缺失文件}
+从 iLIF 仓库取得 \texttt{utils.py} 与 \texttt{data/database/exist/*.pkl}，
+下载 \texttt{bert-base-uncased} 至 \texttt{\_repo/model/}。
+
+\paragraph{步骤 3：生成伪标签并终检}
+
+\begin{lstlisting}[language=bash]
+cd D:/wangbclass/cogeci
+for S in dev train; do for V in strict loose; do
+  ./.venv/Scripts/python.exe tools/pseudo_from_rule.py --split $S --variant $V \
+      --out_csv _repo/data/examples/llm/rule/${S}_${V}.csv
+done; done
+
+./.venv/Scripts/python.exe tools/validate_csv.py \
+    --pkl _repo/data/database/exist/EventStoryLine_bert_intra_and_inter_train_features.pkl \
+    --csv _repo/data/examples/llm/llama3help_train_sen.csv
+\end{lstlisting}
+
+\paragraph{步骤 4：训练}
+必须在 \texttt{\_repo/} 目录下运行（\texttt{process\_esc\_csr.py} 使用相对路径，
+否则读不到伪标签会静默回退全零）。
+
+\begin{lstlisting}[language=bash]
+cd _repo
+../.venv/Scripts/python.exe -u main.py --dataset_type EventStoryLine \
+  --cache_path ./data/database/exist --model_name ./model/bert-base-uncased \
+  --no_of_classes 2 --t_lr 2e-5 --lr 1e-4 --w 0.6 --threshold 2 --epoch 30 \
+  --batch_size 1 --beta_intra 0.3 --beta_inter 0.7 --max_iteration 9 \
+  --min_iteration 2 --num_heads 4 --mlp_drop 0.4 --seed 209 --gamma 2.0 \
+  --grad_ckpt --cgl_w 6.0 --method E1_full_rulelabels
+\end{lstlisting}
+
+\noindent 消融实验只需改 \texttt{--cgl\_w}：E0 取 \texttt{0}，E2 取 \texttt{3}，
+并把 \texttt{--method} 相应改为 \texttt{E0\_no\_cgl} / \texttt{E2\_cgl\_w3}。
+
+\paragraph{步骤 5：一致性对照（可选）}
+
+\begin{lstlisting}[language=bash]
+./.venv/Scripts/python.exe tools/agree_rule_llm.py --split dev
+./.venv/Scripts/python.exe tools/agree_by_reltype.py --split dev
+./.venv/Scripts/python.exe tools/equiv_patch.py      # 等价性验证
+\end{lstlisting}
+
+\subsection{硬件与耗时参考}
+
+全部实验在 RTX 4050 Laptop（6\,GB）上完成，单折训练约 50 分钟，
+5 折合计约 4.2 小时。若显存 $\ge$ 16\,GB，可去掉 \texttt{--grad\_ckpt} 以获得更快的单步速度，
+数值结果不变。

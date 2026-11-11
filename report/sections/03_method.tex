@@ -1,0 +1,162 @@
+\section{方法}
+\label{sec:method}
+
+\subsection{总体结构}
+
+CogECI 的整体流程如图~\ref{fig:frame} 所示。输入是一篇文档的句子序列与其中的事件提及；
+输出是每个候选事件对的因果标签。整条链路包含四个部分：句子编码与句子图模块（SGM）、
+事件表示与双流因果推理（DSCRM）、迭代式因果图更新（继承自 iLIF）、
+以及上下文对齐损失（CGL）。
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=6mm and 9mm,
+  box/.style={draw=deepblue!70, fill=deepblue!6, rounded corners=2pt,
+              minimum height=8mm, minimum width=22mm, align=center,
+              font=\small, inner sep=3pt},
+  loss/.style={draw=orange!75!black, fill=orange!10, rounded corners=2pt,
+               minimum height=7mm, align=center, font=\small, inner sep=3pt},
+  arr/.style={-{Stealth[length=2mm]}, draw=black!65, thick},
+  dash/.style={-{Stealth[length=2mm]}, draw=orange!75!black, thick, dashed}
+]
+% 第一行
+\node[box] (doc) {文档句子\\$s_1,\dots,s_n$};
+\node[box, right=of doc] (bert) {BERT 编码};
+\node[box, right=of bert] (sgm) {SGM\\句子图 GCN};
+\node[box, right=of sgm] (semb) {句表示\\$\bm{v}_1,\dots,\bm{v}_n$};
+
+% 第二行：事件
+\node[box, below=12mm of bert] (evt) {事件提及\\$e_1,\dots,e_m$};
+\node[box, right=of evt] (pool) {片段内子词\\均值池化};
+\node[box, right=of pool] (eemb) {事件表示\\$\bm{e}_1,\dots,\bm{e}_m$};
+
+% 第三行：迭代
+\node[box, below=12mm of pool, minimum width=34mm] (pair) {事件对表示\\$[\bm{e}_i\,\|\,\bm{e}_j\,\|\,(\bm{z}_i-\bm{z}_j)]$};
+\node[box, right=of pair, minimum width=26mm] (mlp) {DSCRM\\双流 MLP};
+\node[box, right=of mlp, minimum width=24mm] (pred) {因果预测\\$\hat{\bm{p}}_{ij}$};
+
+% 第四行：图更新
+\node[box, below=11mm of pred, minimum width=26mm] (graph) {因果图\\置信度 $>\omega$ 的边};
+\node[box, left=of graph, minimum width=26mm] (cge) {CGE\\图卷积更新 $\bm{z}$};
+\node[box, left=of cge, minimum width=24mm] (stop) {结构差\\$\Delta\le\delta$？};
+
+% 损失
+\node[loss, below=10mm of pair, minimum width=30mm] (focal) {ECL：Focal Loss};
+\node[loss, right=6mm of focal, minimum width=40mm] (cgl) {CGL：句级 BCE\\$w=6$};
+
+% 连线
+\draw[arr] (doc) -- (bert);
+\draw[arr] (bert) -- (sgm);
+\draw[arr] (sgm) -- (semb);
+\draw[arr] (bert) |- (pool);
+\draw[arr] (evt) -- (pool);
+\draw[arr] (pool) -- (eemb);
+\draw[arr] (eemb) |- (pair);
+\draw[arr] (pair) -- (mlp);
+\draw[arr] (mlp) -- (pred);
+\draw[arr] (pred) -- (graph);
+\draw[arr] (graph) -- (cge);
+\draw[arr] (cge) -- (stop);
+\draw[arr] (pred) -- (focal);
+\draw[arr] (semb) |- (cgl);
+
+% 迭代回边
+\draw[arr, dashed] (stop.west) -- ++(-6mm,0) |- (pair.west)
+  node[midway, left, font=\scriptsize, align=right] {迭代更新\\$\bm{z}$};
+
+\end{tikzpicture}
+\caption{CogECI 的结构示意。黑色实线为前向数据流，橙色虚线为损失项，蓝色虚线为迭代回路。
+  句子图在句子层面做一次图卷积；事件对表示进入双流 MLP 得到因果预测；
+  置信度超过 $\omega$ 的预测构成因果图，经 CGE 更新事件表示后进入下一轮。}
+\label{fig:frame}
+\end{figure}
+
+\subsection{句子图模块（SGM）}
+
+设 BERT 输出每个句子的表示 $\bm{h}_s\in\mathbb{R}^{768}$（取 \texttt{[CLS]} 位）。
+SGM 以句子为节点、以句子间相似度为边权构建句子图 $A$，然后做两层图卷积：
+\begin{equation}
+  \bm{H}' = \sigma\!\left(\tilde{D}^{-\frac{1}{2}}\tilde{A}\tilde{D}^{-\frac{1}{2}}\bm{H}\bm{W}\right),
+  \qquad \tilde{A}=A+I,
+\end{equation}
+并把卷积结果残差加回原句表示，得到最终的句子向量 $\bm{v}_s$。
+其作用是把相邻句、相关句的语境信息注入单句表示，使得后续"事件对—句子"的相似度计算
+不是逐句孤立地比较。文档被填充（padding）到固定最大句数，不足部分以零向量对齐。
+
+\subsection{双流因果推理模块（DSCRM）}
+
+事件 $e_k$ 的表示取其触发词片段内所有子词 BERT 向量的均值：
+\begin{equation}
+  \bm{e}_k=\frac{1}{|\mathcal{P}_k|}\sum_{t\in\mathcal{P}_k}\bm{h}_t ,
+\end{equation}
+其中 $\mathcal{P}_k$ 为事件 $k$ 的子词位置集合。事件对的输入由三部分拼接而成：
+\begin{equation}
+  \bm{x}_{ij}=\bigl[\;\bm{e}_i \;\|\; \bm{e}_j \;\|\; (\bm{z}_i-\bm{z}_j)\;\bigr]\in\mathbb{R}^{2304},
+\end{equation}
+其中 $\bm{z}$ 是经因果图更新后的事件表示（第一轮时 $\bm{z}=\bm{e}$）。差分项 $\bm{z}_i-\bm{z}_j$
+显式携带方向性，是 ECI 任务中被反复验证有效的设计~\cite{ilif}。
+
+DSCRM 的关键点是\emph{双流参数完全独立}：句内对与句间对分别走各自的 MLP 与各自的图卷积层，
+互不共享。这一设计基于一个直观观察——句内因果往往由句法结构（连接词、从句）承载，
+而跨句因果依赖篇章层面的证据链，两者的判别依据差异很大，强行共享参数会让跨句流被句内流主导。
+二者通过损失加权融合：
+\begin{equation}
+  \mathcal{L}_{\text{total}} = \beta_{\text{intra}}\,\mathcal{L}_{\text{intra}}
+  + \beta_{\text{inter}}\,\mathcal{L}_{\text{inter}} .
+\end{equation}
+本复现按官方命令取 $\beta_{\text{intra}}=0.3$、$\beta_{\text{inter}}=0.7$。
+
+\subsection{迭代式因果图更新}
+
+设第 $l$ 轮的事件对预测为 $\hat{\bm{p}}^{(l)}_{ij}\in\mathbb{R}^{2}$。构造因果图的边集：
+\begin{equation}
+  \mathcal{E}^{(l)}=\Bigl\{(i,j)\ \Big|\ \arg\max_c \hat{p}^{(l)}_{ij,c}=1,\ \
+  \max_c \hat{p}^{(l)}_{ij,c}>\omega\Bigr\},
+\end{equation}
+即把预测为"存在因果"且置信度超过 $\omega$ 的事件对作为有向边加入图，边上再叠加自环。
+随后用 CGE 图卷积在该图上聚合邻居信息，更新事件表示：
+\begin{equation}
+  \bm{z}^{(l+1)}=\mathrm{CGE}\bigl(\bm{z}^{(l)},\mathcal{E}^{(l)}\bigr).
+\end{equation}
+若 $\mathcal{E}^{(l)}$ 为空，则退化为一次线性投影。
+
+停止条件由\emph{结构差}定义：记 $\Delta^{(l)}$ 为第 $l$ 轮相对上一轮预测标签发生改变的
+事件对数量，当 $l \ge L_{\min}$ 且 $\Delta^{(l)}\le\delta$ 时停止。
+ESC 上取 $\omega=0.6$、$\delta=2$、$L_{\max}=9$、$L_{\min}=2$。
+需要说明的是，$\omega$ 在训练与推理时取值不同：训练时用较小的阈值（参数 \texttt{--rate}，默认 0）
+让更多边参与更新以获得梯度，推理时用 0.6 保证精度。
+
+\subsection{损失函数}
+
+总的损失按轮次折扣累加：
+\begin{equation}
+  \mathcal{L}=\sum_{l}\frac{1}{l}\Bigl(\mathcal{L}_{\text{ECL}}^{(l)}
+  + w\cdot\mathcal{L}_{\text{CGL}}^{(l)}\Bigr),\qquad w=6 .
+\end{equation}
+
+\paragraph{ECL（事件因果学习）}采用 Focal Loss 缓解正负样本极不平衡
+（正例仅占 7.76\%）：
+\begin{equation}
+  \mathcal{L}_{\text{ECL}}=-\alpha_y\,(1-p_y)^{\gamma}\log p_y ,
+  \qquad \gamma=2.0,\ \ \alpha_{\text{pos}}=0.75,\ \alpha_{\text{neg}}=0.25 .
+\end{equation}
+
+\paragraph{CGL（上下文对齐）}这是 CogECI 相对 iLIF 最核心的新增项。
+把事件对表示经一次线性映射与 L2 归一化后得到 $\bm{u}_{ij}$，句表示归一化后为 $\bm{v}_s$，
+计算余弦相似度并按文档长度阈值二值化：
+\begin{equation}
+  \tilde{c}_{ij,s}=\mathbb{1}\!\left[\cos(\bm{u}_{ij},\bm{v}_s)>\frac{1}{n}\right],
+\end{equation}
+再与伪标签 $g_{ij,s}\in\{0,1\}$（第 $s$ 句是否支撑该因果对）做逐元素 BCE：
+\begin{equation}
+  \mathcal{L}_{\text{CGL}}=\mathrm{BCE}\bigl(\tilde{c}_{ij,s},\,g_{ij,s}\bigr).
+\end{equation}
+其含义是：\emph{让事件对表示在句向量空间中靠近支撑句、远离非支撑句}。
+阈值 $1/n$ 是一个自适应基线——若随机分布，余弦相似度超过 $1/n$ 的比例约为常数，
+这样二值化后的目标不会因文档长短而剧烈变化。
+
+\paragraph{关于权重 $w$}原实现把 $w=6$ 直接写死在 \texttt{model/model.py} 中，
+覆盖了命令行参数 \texttt{--w}（后者实际只作用于建图阈值 $\omega$）。
+本文把它参数化为 \texttt{--cgl\_w}（默认仍为 6.0），以便做第~\ref{sec:exp} 节的消融实验；
+默认取值下与原实现完全等价。

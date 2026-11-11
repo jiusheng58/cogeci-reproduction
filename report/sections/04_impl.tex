@@ -1,0 +1,123 @@
+\section{复现实现}
+\label{sec:impl}
+
+\subsection{仓库补全}
+
+官方仓库 \texttt{github.com/zefanZhang-cn/CogECI} 在发布时缺失四类文件，表~\ref{tab:missing}
+列出补齐情况与来源。其中 \texttt{utils.py} 的缺失是致命的：\texttt{main.py} 第 15 行直接
+\texttt{import} 了 \texttt{transfor3to2}、\texttt{compute\_f1}、\texttt{setup\_seed}、
+\texttt{calculate} 四个函数，没有该文件程序无法启动。
+
+\begin{table}[H]
+\centering
+\caption{官方仓库缺失文件与补齐方式}
+\label{tab:missing}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+文件 & 影响 & 补齐方式\\
+\midrule
+\texttt{utils.py} & \textbf{无法启动}（被 \texttt{main.py} 直接导入） & 由同作者的 iLIF 仓库取得，四个函数齐全\\
+\texttt{data/database/exist/*.pkl} & 无特征缓存 & 同上，二分类（存在性）版本\\
+\texttt{data/database/*.pkl} & 三分类备用 & 同上，保留以备对照\\
+\texttt{data/examples/llm/*.csv} & \textbf{静默回退全零标签} & 本项目生成（见第~\ref{sec:pseudo} 节）\\
+\texttt{model/bert-base-uncased/} & 无预训练权重 & 从镜像下载（440\,449\,768 字节，已校验）\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+伪标签文件的缺失最为隐蔽。\texttt{data/process\_esc\_csr.py} 在读取 CSV 失败时不会抛异常，
+而是把句级标签矩阵置为零，训练照常进行但 CGL 项失去意义。这直接对应课程要求中
+"不得出现无伪标签回退"的红线，因此本项目在训练前加了独立的校验脚本
+（\texttt{tools/validate\_csv.py}），逐文件核对：
+\texttt{doc\_id} 唯一、\texttt{answer} 条数等于事件对数、\texttt{eval} 可解析、
+句编号不越界、覆盖 pkl 中全部文档。四项检查全部通过后方允许启动训练。
+
+\subsection{运行环境}
+
+表~\ref{tab:env} 为本项目实际使用的环境。搭建过程中遇到三处版本冲突，记录于此以便复现：
+
+\begin{table}[H]
+\centering
+\caption{运行环境}
+\label{tab:env}
+\small
+\begin{tabular}{lll}
+\toprule
+组件 & 版本 & 说明\\
+\midrule
+操作系统 & Windows 11 & 训练脚本需在 \texttt{\_repo/} 目录下运行（相对路径）\\
+Python & 3.12 & 独立虚拟环境 \texttt{D:/wangbclass/cogeci/.venv}\\
+PyTorch & 2.6.0 + cu126 & CUDA 12.6\\
+PyTorch Geometric & 2.5.3 & 2.7 版本需要额外依赖 \texttt{xxhash}，降版规避\\
+transformers & 4.46.3 & 5.x 已移除 \texttt{AdamW}，必须降版\\
+GPU & RTX 4050 Laptop & 6\,141\,MiB 显存\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{enumerate}
+  \item \textbf{transformers 5.15.1 移除了 \texttt{AdamW}}，而 \texttt{main.py} 依赖
+        \texttt{transformers.AdamW}。降至 4.46.3（连带 \texttt{huggingface-hub} 0.26.5、
+        \texttt{tokenizers} 0.20.3）。
+  \item \textbf{PyG 2.7 需要 \texttt{xxhash}}，而该依赖在 Windows 上无预编译轮子。
+        改用 2.5.3。
+  \item \textbf{pickle 反序列化失败}：特征缓存中保存的是自定义类 \texttt{ESC\_features}，
+        直接 \texttt{pickle.load} 会报 \texttt{Can't get attribute 'ESC\_features'}。
+        所有脚本需先执行 \texttt{\_\_main\_\_.ESC\_features = ESC\_features} 注册类名再加载。
+\end{enumerate}
+
+另有一处 Windows 兼容问题：\texttt{main.py} 原用
+\texttt{logout/seed:\{seed\}} 构造日志目录，而 Windows 不允许路径中出现冒号。
+本复现改为 \texttt{logout/seed\_\{seed\}}。
+
+\subsection{两份伪标签文件的分工}
+
+伪标签的读取逻辑在 \texttt{model/model.py} 中，按事件对的类型分流：
+\begin{lstlisting}[language=Python]
+if ground_type[i] == 1:      # intra：两事件同句
+    intra_all_senlable.append(all_senlable[i])    # <- llama3help_*_sen.csv
+else:                        # inter：两事件异句
+    inter_all_senlable.append(all_senlable2[i])   # <- llama3help_*_sen_more.csv
+\end{lstlisting}
+
+这点容易被误解为"宽/严两个版本二选一"，实际上两份文件\emph{同时}被使用，
+分别服务句内流与跨句流。它直接决定了伪标签的设计原则：
+\textbf{句内对只需一句，句间对需要一个句子区间}。第~\ref{sec:pseudo} 节的规则正是据此设计的。
+
+\subsection{训练超参数}
+
+表~\ref{tab:hparam} 为本项目全部实验使用的超参数，与官方默认值一致
+（除显式标注的消融项外）。
+
+\begin{table}[H]
+\centering
+\caption{训练超参数}
+\label{tab:hparam}
+\small
+\begin{tabular}{llll}
+\toprule
+参数 & 取值 & 参数 & 取值\\
+\midrule
+骨干网络 & BERT-base-uncased & 最大迭代轮数 $L_{\max}$ & 9\\
+类别数 & 2（存在性） & 最小迭代轮数 $L_{\min}$ & 2\\
+批大小 & 1 & 结构差阈值 $\delta$ & 2\\
+轮数 & 30 & 建图置信度阈值 $\omega$ & 0.6\\
+BERT 学习率 & $2\times10^{-5}$ & Focal $\gamma$ & 2.0\\
+其余模块学习率 & $1\times10^{-4}$ & Focal $\alpha$ & 0.75 / 0.25\\
+warm-up 比例 & 10\% & $\beta_{\text{intra}}$ / $\beta_{\text{inter}}$ & 0.3 / 0.7\\
+权重衰减 & 0.01 & MLP 隐层维度 & 2304\\
+梯度裁剪 & 1.0 & MLP dropout & 0.4\\
+随机种子 & 209 & 注意力头数 $K$ & 4\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{权重保存}
+
+官方实现不保存任何模型权重，而已训练模型是课程要求交付的产物之一。
+本复现在 \texttt{main.py} 中增加按折保存的逻辑：每折在验证集 $F_1$ 取得新高的轮次
+把 \texttt{state\_dict}、折号、轮次、验证 $F_1$ 与完整的超参快照一并写入
+\texttt{checkpoints/<实验名>/fold\{k\}\_best.pt}。
+按实验名分子目录是为了让消融实验的权重互不覆盖。
+五折权重各约 535\,MB，合计约 2.6\,GB。

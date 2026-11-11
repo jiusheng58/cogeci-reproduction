@@ -1,0 +1,106 @@
+\section{工程优化与数值等价性验证}
+\label{sec:engineering}
+
+\subsection{问题诊断}
+
+在 6\,GB 显存的 RTX 4050 Laptop 上按原实现直接运行，实测每篇文档平均耗时 4.4 秒，
+但 GPU 利用率仅约 8\%，显存峰值 6\,824\,MB（已超出 6\,141\,MiB 物理显存，
+Windows 驱动将溢出部分换到主机内存）。按此速度外推，5 折 $\times$ 30 轮需约 47 小时，
+无法在课程周期内完成。
+
+进一步定位发现瓶颈不在计算量，而在\emph{主机与设备之间的频繁小规模同步}：
+模型中多处使用逐元素的 Python 循环配合 GPU 张量索引，每个事件对都触发一次
+Python 到 CUDA 的往返，导致 GPU 长时间空转。这类问题在大显存卡上被掩盖
+（小张量同步相对便宜），在小显存卡上则因换页而急剧放大。
+
+\subsection{五处向量化改写}
+
+本文对热点路径做了 5 处改写，全部遵循"数学等价、只改调度"的原则，
+不改变任何模型结构、损失定义或超参数。改写前后的对照见表~\ref{tab:patch}。
+
+\begin{table}[H]
+\centering
+\caption{五处性能补丁}
+\label{tab:patch}
+\small
+\begin{tabularx}{\textwidth}{@{}c l X@{}}
+\toprule
+编号 & 位置 & 改写内容\\
+\midrule
+1 & \texttt{extract\_event} & 事件片段内子词求均值：逐行累加改为
+  \texttt{embed[e1:e2].sum(dim=0)} 切片求和\\
+2 & \texttt{forward} & 删除死代码 \texttt{true\_sent}：其下游从未被使用，
+  且 \texttt{sent\_ground} 在同一循环内被重复 \texttt{append}，本身是一个缺陷\\
+3 & \texttt{loop\_prediction} & 事件对索引：逐对 \texttt{event\_embed[a] - event\_embed[b]}
+  改为一次性 \texttt{index\_select}\\
+4 & \texttt{get\_graphedge\_index} & 选边：双层 \texttt{for} + \texttt{append} 改为
+  布尔掩码 \texttt{conf \& (am==label) \& (rel==r)} 一次性筛选\\
+5 & \texttt{Contrast\_pre} & 结构差统计：$O(N^2)$ 的增量 \texttt{cat} 改为
+  \texttt{torch.where} 逐元素比较\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+第 2 项需要额外说明。原实现在 \texttt{forward} 中为每个事件对构造 \texttt{true\_sent}，
+但下游没有任何张量使用它；同时 \texttt{sent\_ground} 在同一循环体内被重复追加，
+若后续有代码读取该列表将得到长度翻倍的结果。删除它既提速也消除了一处潜在缺陷。
+第 4 项在改写时特意保留了"选边顺序"与"空张量的形状"，
+因为后续的 \texttt{torch.cat} 依赖这两点，否则即使数值相同也会在现代码上报维度错误。
+
+\subsection{显存优化}
+
+原实现按 24\,GB 卡设计，激活值全部驻留显存。本文引入 BERT 的梯度检查点
+（gradient checkpointing）：前向时不保存中间激活，反向时重新计算。
+这只改变"计算换显存"的取舍，不影响任何数值结果。配合新增的 \texttt{--grad\_ckpt}
+开关，实测峰值显存由 6\,824\,MB 降至 \textbf{2\,483\,MB}，稳稳落在 6\,GB 卡内；
+最长文档的单步耗时同时由 12.3 秒降到 1.7 秒——因为不再发生显存换页。
+
+\subsection{数值等价性验证}
+
+"改写是等价的"不能靠阅读代码断言，本文用独立脚本
+（\texttt{tools/equiv\_patch.py}）做逐项比对：在同一批数据、同一随机种子下，
+分别加载原版（备份为 \texttt{model/\_orig\_model.py}）与补丁版，
+比较前向损失、预测概率、反向梯度范数与图边选取结果。
+
+\begin{table}[H]
+\centering
+\caption{性能补丁的数值等价性验证}
+\label{tab:equiv}
+\small
+\begin{tabular}{lll}
+\toprule
+比对项 & 最大绝对偏差 & 判定\\
+\midrule
+前向损失 \texttt{loss} & $0$（逐位相同） & 等价\\
+预测概率 \texttt{prediction} & $<1.2\times10^{-7}$ & 浮点累加顺序差异，等价\\
+梯度范数 & $<10^{-8}$ & 等价\\
+图边索引 \texttt{graphedge\_index} & \texttt{torch.equal} 为真 & 完全一致\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+损失的逐位相同是可以预期的：切片求和的加法顺序与逐行累加完全一致。
+预测概率的 $10^{-7}$ 量级差异来自 \texttt{index\_select} 与逐对索引在底层
+kernel 上的归约顺序不同，属正常的浮点非结合性，远小于任何有意义的阈值。
+
+\subsection{优化效果}
+
+\begin{table}[H]
+\centering
+\caption{优化前后对比（RTX 4050 Laptop, 6\,GB）}
+\label{tab:speed}
+\small
+\begin{tabular}{lccc}
+\toprule
+配置 & 单文档耗时 & 峰值显存 & 2 折 $\times$ 1 轮快检\\
+\midrule
+原实现 & 4.4\,s & 6\,824\,MB（溢出） & ---\\
+仅开梯度检查点 & 1.7\,s & 2\,483\,MB & ---\\
+\textbf{补丁 + 梯度检查点} & \textbf{0.26--0.36\,s} & 2\,483\,MB & 35\,min $\to$ 3.5\,min\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+综合加速比为 \textbf{12--17 倍}（不同文档长度下略有差异），5 折 30 轮的总耗时
+由外推的 47 小时降到约 4.2 小时，使全量实验在单卡笔记本上成为可能。
+这一改造是本次复现能在课程周期内完成 5 折交叉验证与消融实验的直接前提。
