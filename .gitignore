@@ -41,3 +41,13 @@ desktop.ini
 _ilif/
 _ilif_parameter.py
 _ilif_utils.py
+
+# ---- 草稿与临时产物 ----
+tmp_dl/
+tmp/
+report/_*.png
+report/_test.*
+report/_*.log
+ppt/deck/_*.png
+ppt/deck/deck_v1.pptx
+ppt/deck/.slidep/

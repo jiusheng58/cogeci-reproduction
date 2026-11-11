@@ -4,16 +4,24 @@
 %  编译方式：xelatex report.tex  (连续编译两遍以生成目录与交叉引用)
 % =====================================================================
 \documentclass[UTF8,a4paper,zihao=-4,fontset=windows]{ctexart}
+% MiKTeX 下 graphics/xcolor 的驱动自动检测可能失效，显式指定 xetex 驱动
+\PassOptionsToPackage{xetex}{graphics}
+\PassOptionsToPackage{xetex}{xcolor}
 
 % ---------- 版面 ----------
 \usepackage[top=2.5cm,bottom=2.5cm,left=2.6cm,right=2.6cm]{geometry}
 \linespread{1.45}
 \usepackage{indentfirst}
+% 关闭拉丁词自动断字，避免 CogECI 被拆成 Co-gECI
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\emergencystretch=3em
+
 \setlength{\parindent}{2em}
 
 % ---------- 字体与符号 ----------
 \usepackage{amsmath,amssymb,bm}
-\usepackage{newtxtext,newtxmath}
+% 拉丁字体交给 ctex 默认（newtx 与 ctex 组合易冲突，故不引入）
 
 % ---------- 图表 ----------
 \usepackage{graphicx}

@@ -16,7 +16,7 @@ ECI 的输入是一组候选事件对 $(e_i,e_j)$，输出是它们之间因果�
 
 \begin{itemize}
   \item \textbf{因果方向识别}（Causality Direction Identification）：三分类，
-        标签为 $\{\text{NONE},\text{CAUSE},\text{EFFECT}\}$，需要区分"因"与"果"；
+        标签为 $\{\text{NONE},\text{CAUSE},\text{EFFECT}\}$，需要区分“因”与“果”；
   \item \textbf{因果存在性识别}（Causality Existence Identification）：二分类，
         标签为 $\{\text{NONE},\text{CAUSAL}\}$，只判断有无因果、不区分方向。
 \end{itemize}
@@ -28,7 +28,7 @@ ECI 的输入是一组候选事件对 $(e_i,e_j)$，输出是它们之间因果�
 本文复现的 CogECI 属于 iLIF~\cite{ilif} 一脉。iLIF 的核心观察是：文档中的因果关系不是一次性
 判定的，而应通过\emph{迭代}逐步显式化——模型先基于当前事件表示预测一批因果边，把高置信度的边
 加入因果图，用图卷积更新事件表示，再重新预测；当相邻两轮预测的结构差异足够小时停止。
-CogECI 沿用这一骨架，并针对"事件对表示与文档句子之间的证据对齐"这一薄弱环节，
+CogECI 沿用这一骨架，并针对“事件对表示与文档句子之间的证据对齐”这一薄弱环节，
 引入句子图模块、双流因果推理模块与上下文对齐损失，同时借助大语言模型为每个正例事件对
 预先标注\emph{支撑句集合}（grounded context），作为弱监督信号约束上述对齐。
 
@@ -41,8 +41,8 @@ CogECI 沿用这一骨架，并针对"事件对表示与文档句子之间的证
   \item \textbf{仓库不完整。}缺失的四类文件中，\texttt{utils.py} 被 \texttt{main.py} 直接导入，
         缺它程序根本起不来；\texttt{data/database/exist/*.pkl} 是训练必需的特征缓存；
         \texttt{data/examples/llm/*.csv} 是伪标签，\emph{缺失时代码会静默回退为全零标签而不报错}——
-        这是最危险的一处，因为它会让训练"看起来跑通、实际学不到东西"。
-  \item \textbf{原文不可得。}因此本文不追求"逐位对齐论文表格数值"，
+        这是最危险的一处，因为它会让训练“看起来跑通、实际学不到东西”。
+  \item \textbf{原文不可得。}因此本文不追求“逐位对齐论文表格数值”，
         而是以官方代码为准重建方法描述，并以 iLIF 论文公开的存在性口径结果作为合理性锚点。
   \item \textbf{算力受限。}实验在单张 6\,GB 显存的笔记本显卡（RTX 4050 Laptop）上完成。
         原始实现按 RTX 3090（24\,GB）设计，直接运行会因显存溢出而把张量换出到主机内存，
@@ -58,7 +58,7 @@ CogECI 沿用这一骨架，并针对"事件对表示与文档句子之间的证
 \begin{enumerate}
   \item 补齐并跑通了官方仓库，形成一份可复现的、端到端的执行清单（第~\ref{sec:impl} 节）。
   \item 用三条独立证据确定了评测口径，并修正了仓库中沿用自 iLIF 的错误命名
-        （日志里的 "Causality Direction Identification" 在二分类配置下并不成立）。
+        （日志里的 “Causality Direction Identification” 在二分类配置下并不成立）。
   \item 提出并验证了 LLM 伪标签的规则法离线替代：句级精确率 0.985，
         97.4\% 的样本中规则集被 LLM 答案完全包含（第~\ref{sec:pseudo} 节）。
   \item 对原始实现做了 5 处向量化改造与 1 处显存优化，取得 12--17 倍加速，

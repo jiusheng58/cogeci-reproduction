@@ -12,8 +12,11 @@
 \end{center}
 
 仓库不含数据集、BERT 权重与训练权重（体积原因），获取方式见下文。
+
 训练好的 5 折权重（\texttt{checkpoints/E1\_full\_rulelabels/fold\{1..5\}\_best.pt}，
-各约 535\,MB）随课程提交的压缩包一同提供。
+各约 535\,MB，合计约 2.6\,GB）因体积过大未随提交包提供，仍保留在本机。
+按下文给出的训练命令重新运行即可得到逐位相同的结果
+（固定 \texttt{seed=209}，单卡约 4.2 小时）；如评审需要可直接向作者索取。
 
 \subsection{目录结构}
 
@@ -21,10 +24,10 @@
 cogeci-reproduction/
 |-- _repo/                        官方仓库（含本项目补丁）
 |   |-- main.py                   训练主循环（+ 权重保存、日志路径修正）
-|   |-- parameter.py              超参（+ --grad_ckpt, --cgl_w）
+|   |-- parameter.py              超参（+ --grad_ckpt, --cgl_w, --cgl_mode）
 |   |-- utils.py                  自 iLIF 补齐
 |   |-- model/
-|   |   |-- model.py              网络定义（5 处性能补丁 + CGL 权参数化）
+|   |   |-- model.py              网络定义（5 处性能补丁 + CGL 参数化 + STE 分支）
 |   |   |-- _orig_model.py        原版备份（用于等价性验证）
 |   |   `-- bert-base-uncased/    需自行下载
 |   |-- data/
@@ -37,11 +40,13 @@ cogeci-reproduction/
 |   |-- label_sentences.py        LLM 打标（含断点续跑、关思考）
 |   |-- agree_rule_llm.py         规则 vs LLM 一致性对照
 |   |-- agree_by_reltype.py       按 intra/inter 拆分对照
+|   |-- make_ablation_table.py   从日志生成消融表
 |   |-- validate_csv.py           训练前伪标签终检
 |   |-- equiv_patch.py            性能补丁数值等价性验证
 |   |-- bench_vram.py             显存峰值实测
 |   `-- estimate_tokens.py        打标 token 消耗估算
 |-- report/                       LaTeX 报告源文件（本文件所在目录）
+|-- run_ablation.sh               消融实验串行队列
 `-- logs_*.txt                    各实验完整训练日志
 \end{lstlisting}
 

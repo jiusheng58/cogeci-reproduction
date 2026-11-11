@@ -1,0 +1,48 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>方法结构</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>02 / 在 iLIF 骨架上加了什么</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 16, marginTop: 34 }}>
+        {[
+            { i: 'SGM', t: '句子图模块', d: '句子为节点、相似度为边权，两层 GCN 后残差加回，让单句表示吸收相邻句语境' },
+            { i: 'EVT', t: '事件表示', d: '取触发词片段内所有子词 BERT 向量的均值，得到 768 维事件向量' },
+            { i: 'DS', t: 'DSCRM 双流', d: '句内与跨句两套独立参数；输入 [e_i‖e_j‖(z_i−z_j)] 共 2304 维' },
+            { i: 'ITER', t: '迭代建图', d: '置信度 > ω 的预测建因果边，CGE 更新 z；结构差 ≤ δ 时早停' },
+        ].map((c, idx) => (
+            <Box key={c.i} style={{ width: 268, flexDirection: 'column', gap: 10 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', backgroundColor: '#1C3F78', padding: '3px 8px' }}>{c.i}</Text>
+                    <Text style={{ fontSize: 13, color: '#A7B0BE' }}>0{idx + 1}</Text>
+                </Box>
+                <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1C3F78' }}>{c.t}</Text>
+                <Box style={{ height: 2, width: 40, backgroundColor: '#C8892A' }} />
+                <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>{c.d}</Text>
+            </Box>
+        ))}
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 20, marginTop: 38 }}>
+        <Box style={{ width: 556, backgroundColor: '#F4F6F9', padding: '18px 22px', flexDirection: 'column', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1C3F78' }}>ECL：事件因果学习</Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>
+                Focal Loss，γ = 2.0，正类 α = 0.75，缓解 7.76% 的极端不平衡
+            </Text>
+            <Text style={{ fontSize: 14, color: '#2E6CB5' }}>L = Σ (1/l) · [ L_ECL + w · L_CGL ]</Text>
+        </Box>
+        <Box style={{ width: 556, backgroundColor: '#FFF8EC', padding: '18px 22px', flexDirection: 'column', gap: 8, borderLeft: '3px solid #C8892A' }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1C3F78' }}>CGL：上下文对齐（本文复现的核心）</Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>
+                事件对表示与句向量的余弦相似度按 1/n 二值化，与伪标签做逐元素 BCE
+            </Text>
+            <Text style={{ fontSize: 14, color: '#C8892A' }}>权重 w = 6 在原实现中被硬编码，本文参数化为 --cgl_w</Text>
+        </Box>
+    </Box>
+
+    <Text style={{ fontSize: 14, color: '#8A94A6', marginTop: 22, lineHeight: 1.6 }}>
+        关键点：CGL 让"事件对表示"在句向量空间中靠近支撑句、远离非支撑句。它把第一阶段的 LLM 伪标签，
+        变成一个作用于表示的弱监督信号——这也是本复现最依赖伪标签质量的地方。
+    </Text>
+</Slide>

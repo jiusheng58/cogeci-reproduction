@@ -1,0 +1,65 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>增益从哪来：SGM + DSCRM</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>05 / 把 +2.4 重新归因</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 32, marginTop: 36 }}>
+        <Box style={{ width: 544, flexDirection: 'column', gap: 26 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>三步排除</Text>
+            {[
+                ['CGL 不产生梯度', '上一页已证。因此相对 iLIF 的 +2.4 不能算作上下文对齐的功劳。'],
+                ['剩下的只有两处结构改动', 'SGM 在同一句内的多个事件之间建边；DSCRM 把句内 / 跨句两流的参数解耦。两者都不动 iLIF 的骨架。'],
+                ['据此可做一个可检验的预测', '两者的作用范围都在句内，所以增益应集中在句内，跨句应基本不动。'],
+            ].map((r, i) => (
+                <Box key={i} style={{ flexDirection: 'row', gap: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#C8892A', width: 16 }}>{i + 1}</Text>
+                    <Box style={{ flexDirection: 'column', gap: 4, width: 500 }}>
+                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>{r[0]}</Text>
+                        <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.75 }}>{r[1]}</Text>
+                    </Box>
+                </Box>
+            ))}
+        </Box>
+
+        <Box style={{ width: 544, flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>预测对上了：句内涨、跨句平</Text>
+            <Table
+                style={{ width: '100%', height: 230 }}
+                defaultTextStyle={{ fontSize: 14, textAlign: 'center', color: '#33404F' }}
+                defaultCellStyle={{
+                    border: {
+                        left: { width: 0, color: '#FFFFFF' },
+                        right: { width: 0, color: '#FFFFFF' },
+                        top: { width: 0, color: '#FFFFFF' },
+                        bottom: { width: 1, color: '#E2E8F0' },
+                    },
+                }}
+                cells={[
+                    [
+                        { text: '口径', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'iLIF', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '本复现', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '差值', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                    ],
+                    ['整体 F1', '62.5', '64.9', { text: '+2.4', textStyle: { bold: true, color: '#C8892A' } }],
+                    ['句内 F1', '71.2', '77.4', { text: '+6.2', textStyle: { bold: true, color: '#C8892A' } }],
+                    ['跨句 F1', '59.1', '58.8', { text: '−0.3', textStyle: { bold: true, color: '#A7B0BE' } }],
+                ]}
+            />
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.8 }}>
+                跨句对占全部事件对的 85.4%。SGM 不提供篇章级信息，跨句的边仍由 iLIF 原有的
+                “按预测置信度建图”给出——跨句不动，正说明增益不是来自一个全局机制。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ marginTop: 44, backgroundColor: '#FFF8EC', borderLeft: '3px solid #C8892A', padding: '20px 24px', flexDirection: 'column', gap: 4 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>这条归因的边界</Text>
+        <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.8 }}>
+            它是与数据一致的解释，不是被实验分离出来的因果结论。要真正拆开 SGM 与 DSCRM 各自的贡献，
+            需要分别去掉二者重跑——这是后续工作的第一项。
+        </Text>
+    </Box>
+</Slide>

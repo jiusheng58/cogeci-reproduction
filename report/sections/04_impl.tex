@@ -28,7 +28,7 @@
 
 伪标签文件的缺失最为隐蔽。\texttt{data/process\_esc\_csr.py} 在读取 CSV 失败时不会抛异常，
 而是把句级标签矩阵置为零，训练照常进行但 CGL 项失去意义。这直接对应课程要求中
-"不得出现无伪标签回退"的红线，因此本项目在训练前加了独立的校验脚本
+“不得出现无伪标签回退”的红线，因此本项目在训练前加了独立的校验脚本
 （\texttt{tools/validate\_csv.py}），逐文件核对：
 \texttt{doc\_id} 唯一、\texttt{answer} 条数等于事件对数、\texttt{eval} 可解析、
 句编号不越界、覆盖 pkl 中全部文档。四项检查全部通过后方允许启动训练。
@@ -81,7 +81,7 @@ else:                        # inter：两事件异句
     inter_all_senlable.append(all_senlable2[i])   # <- llama3help_*_sen_more.csv
 \end{lstlisting}
 
-这点容易被误解为"宽/严两个版本二选一"，实际上两份文件\emph{同时}被使用，
+这点容易被误解为“宽/严两个版本二选一”，实际上两份文件\emph{同时}被使用，
 分别服务句内流与跨句流。它直接决定了伪标签的设计原则：
 \textbf{句内对只需一句，句间对需要一个句子区间}。第~\ref{sec:pseudo} 节的规则正是据此设计的。
 

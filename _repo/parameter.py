@@ -59,6 +59,14 @@ def parse_args():
 
     # CGL（上下文对齐 BCE）损失权重：原实现硬编码 w=6；此处参数化以便做消融，默认值不变
     parser.add_argument('--cgl_w', default=6.0, type=float, help='weight of context grounding loss (CGL)')
+    # CGL 二值化的梯度处理方式：
+    #   hard = 原实现，(cos>flag).float() 会切断计算图，CGL 项无梯度
+    #   ste  = 直通估计器，前向数值与 hard 完全一致，仅补回梯度，用于验证 CGL 是否本可生效
+    parser.add_argument('--cgl_mode', default='hard', choices=['hard', 'ste'],
+                        help='gradient handling of CGL binarization')
+    # 只跑指定折（含端点，1-based）。消融实验用，默认 1..k_fold，与原实现等价
+    parser.add_argument('--fold_start', default=1, type=int)
+    parser.add_argument('--fold_end', default=5, type=int)
 
     parser.add_argument('--valid_epoch', default=1, type=int)
     parser.add_argument('--test_epoch', default=1, type=int)

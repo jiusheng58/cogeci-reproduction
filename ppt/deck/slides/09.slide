@@ -1,0 +1,79 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>消融没有差异：CGL 项没有梯度</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>05 / 一次失败的消融引出的方法级缺陷</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 32, marginTop: 36 }}>
+        <Box style={{ width: 544, flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>现象：权重取 0 / 3 / 6，结果一模一样</Text>
+            <Table
+                style={{ width: '100%', height: 216 }}
+                defaultTextStyle={{ fontSize: 14, textAlign: 'center', color: '#33404F' }}
+                defaultCellStyle={{
+                    border: {
+                        left: { width: 0, color: '#FFFFFF' },
+                        right: { width: 0, color: '#FFFFFF' },
+                        top: { width: 0, color: '#FFFFFF' },
+                        bottom: { width: 1, color: '#E2E8F0' },
+                    },
+                }}
+                cells={[
+                    [
+                        { text: '配置', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'w', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '首轮损失', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'F1', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '最优轮次', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                    ],
+                    ['E1 原实现', '6', '8.7606', '0.6110', '26'],
+                    ['E2 权重减半', '3', '—', '0.6110', '26'],
+                    ['E0 去 CGL', '0', '0.1026', '0.6110', '26'],
+                ]}
+            />
+            <Box style={{ backgroundColor: '#FFF8EC', borderLeft: '3px solid #C8892A', padding: '10px 14px' }}>
+                <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.65 }}>
+                    不是四舍五入相同：F1 都是 0.6110381077529566，跨句 F1 都是 0.5222551923867566。
+                    首轮损失差 8.66，说明这一项确实被算进了 loss。
+                </Text>
+            </Box>
+        </Box>
+
+        <Box style={{ width: 544, flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>根因：一行代码切断了计算图</Text>
+            <Box style={{ backgroundColor: '#F4F6F9', padding: '18px 16px', flexDirection: 'column', gap: 11 }}>
+                <Text style={{ fontSize: 13, color: '#8A94A6' }}>model/model.py</Text>
+                <Text style={{ fontSize: 13, color: '#5B6673', fontFamily: 'Consolas' }}>{'cosine_sim = F.cosine_similarity(...)'}</Text>
+                <Text style={{ fontSize: 13, color: '#5B6673', fontFamily: 'Consolas' }}>{'flag = 1 / cosine_sim.size(1)'}</Text>
+                <Text style={{ fontSize: 13, color: '#C0392B', fontWeight: 'bold', fontFamily: 'Consolas' }}>{'cosine_sim = (cosine_sim > flag).float()'}</Text>
+                <Text style={{ fontSize: 13, color: '#8A94A6', fontFamily: 'Consolas' }}>{'sen_loss = self.bce_loss(cosine_sim, ...)'}</Text>
+            </Box>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.7 }}>
+                比较运算返回的是不可导的布尔张量，.float() 只换数据类型，不会把计算图接回来。
+                实测该张量 requires_grad = False，单独反传直接报错。
+            </Text>
+            <Box style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 15, color: '#5B6673' }}>结论：</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#C8892A' }}>∂L / ∂θ ≡ 0</Text>
+            </Box>
+        </Box>
+    </Box>
+
+    <Box style={{ marginTop: 44, backgroundColor: '#EEF3FA', padding: '22px 24px', flexDirection: 'row', gap: 26 }}>
+        <Box style={{ width: 512, flexDirection: 'column', gap: 5 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>影响：整条 Stage-1 伪标签链路零贡献</Text>
+            <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.65 }}>
+                两个伪标签张量只被这一处消费，因此伪标签造得多准都不会反映到指标上；
+                相对 iLIF 的 +2.4 也不能算作 CGL 的增益。
+            </Text>
+        </Box>
+        <Box style={{ width: 512, flexDirection: 'column', gap: 5 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>修复：直通估计，前向不变只补梯度</Text>
+            <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.65 }}>
+                把二值化改为 1[cos &gt; τ] + cos − sg(cos)：前向与硬阈值完全相同，反向把梯度原样传回。
+                修复后首轮损失由 8.76 变 9.10，说明梯度确实进来了。
+            </Text>
+        </Box>
+    </Box>
+</Slide>

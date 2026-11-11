@@ -1,0 +1,29 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>汇报框架</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>从任务定义到实测结论</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 26, marginTop: 40 }}>
+        {[
+            { n: '01', t: '任务与背景', d: '文档级 ECI、存在性 vs 方向性口径、ESC 数据规模' },
+            { n: '02', t: '方法结构', d: 'SGM 句子图、DSCRM 双流推理、ECL 与 CGL 两个损失' },
+            { n: '03', t: '复现障碍', d: '官方仓库缺四类文件，伪标签缺失会静默回退全零' },
+            { n: '04', t: '伪标签替代', d: 'LLM 额度耗尽后改用规则法，与 545 条标注做一致性对照' },
+            { n: '05', t: '实验与优化', d: '5 折交叉验证结果、5 处性能补丁的数值等价性' },
+            { n: '06', t: '结论与不足', d: '增益来自句内、跨句持平，以及四处已知偏差' },
+        ].map((it) => (
+            <Box key={it.n} style={{
+                width: 550, height: 158, backgroundColor: '#F4F6F9',
+                borderLeft: '3px solid #2E6CB5', padding: '18px 24px', flexDirection: 'row', gap: 18,
+            }}>
+                <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#C8D6E8', lineHeight: 1.0 }}>{it.n}</Text>
+                <Box style={{ flexDirection: 'column', gap: 8 }}>
+                    <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#1C3F78' }}>{it.t}</Text>
+                    <Text style={{ fontSize: 15, color: '#5B6673', lineHeight: 1.55 }}>{it.d}</Text>
+                </Box>
+            </Box>
+        ))}
+    </Box>
+</Slide>

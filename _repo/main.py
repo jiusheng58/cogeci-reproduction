@@ -270,6 +270,9 @@ def cross_validation(args, model_class, processor,tokenizer):
     avg_test_f1, avg_test_r, avg_test_p, avg_test_intra_p, avg_test_intra_r, avg_test_intra_f1, avg_test_cross_p, avg_test_cross_r, avg_test_cross_f1 = [], [], [], [], [], [], [], [], []
     # 5 folds
     for fold, (train_idx, test_idx) in enumerate(splits.split(train_test_dataset)):
+        # 折区间过滤：消融实验只跑指定折，避免重复训练。默认 1..k_fold，行为与原实现一致
+        if not (args.fold_start <= fold + 1 <= args.fold_end):
+            continue
         printlog("Fold {}".format(fold + 1))
         train_dataset = Subset(train_test_dataset, train_idx)
         test_dataset = Subset(train_test_dataset, test_idx)

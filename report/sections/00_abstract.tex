@@ -9,7 +9,7 @@
 CogECI 在 iLIF 的迭代式因果图骨架之上，引入\emph{句子图模块}（Sentence Graph Module, SGM）、
 \emph{双流因果推理模块}（Dual-Stream Causal Reasoning Module, DSCRM）以及
 \emph{上下文对齐损失}（Context Grounding Loss, CGL），
-其第一阶段依赖大语言模型（LLM）为每个因果正例事件对标注"支撑该因果关系的句子集合"。
+其第一阶段依赖大语言模型（LLM）为每个因果正例事件对标注“支撑该因果关系的句子集合”。
 
 本项目的主要工作与结论如下。
 
@@ -24,17 +24,28 @@ CogECI 在 iLIF 的迭代式因果图骨架之上，引入\emph{句子图模块}
         Stage 1 未按论文原方案完成全量 LLM 打标。本文设计基于事件所在句的\emph{规则法}伪标签，
         并用已完成的 545 条 Qwen3.8-27B 标注做一致性对照：规则集相对 LLM 选句的
         \textbf{句级精确率 0.985}、F1 0.853，且 \textbf{97.4\%} 的样本中 LLM 所选句子恰好包含
-        两个事件所在句，说明规则法捕捉到了 LLM 选句的核心，属"高精度、稍低召回"的保守替代。
+        两个事件所在句，说明规则法捕捉到了 LLM 选句的核心，属“高精度、稍低召回”的保守替代。
   \item \textbf{完成了工程优化并严格验证了数值等价性。}原始实现在单文档上仅约 8\% GPU 利用率，
         5 折 $\times$ 30 轮外推需约 47 小时。本文对 5 处热点做了向量化改写，
         实测加速 \textbf{12--17 倍}，且损失值偏差为 0、预测概率偏差 $<1.2\times10^{-7}$、
         梯度范数偏差 $<10^{-8}$、图边选取结果逐元素相等。同时引入梯度检查点，
         将峰值显存由 6\,824\,MB 降至 2\,483\,MB，使 6\,GB 显存笔记本可完成全量训练。
+  \item \textbf{发现并定位了原实现的一处方法级缺陷：CGL 项没有梯度。}
+        消融中 \texttt{--cgl\_w 0} 与默认的 \texttt{--cgl\_w 6} 给出
+        \emph{逐位相同}的训练轨迹（$F_1$ 均为 \texttt{0.6110381077529566}，最优轮次同为 26），
+        而首轮训练损失却相差 8.66（8.7606 对 0.1026）。代码级核查定位到
+        \texttt{model/model.py} 中的 \texttt{(cosine\_sim > flag).float()}：
+        比较运算返回不可导的布尔张量，\texttt{.float()} 只做类型转换、不恢复计算图，
+        实测该张量 \texttt{requires\_grad=False}、单独反传即报错。故
+        $\partial \mathcal{L}_{\mathrm{CGL}}/\partial \theta \equiv 0$，
+        \textbf{整条 Stage-1 LLM 伪标签链路对本实现的训练没有任何贡献}。
+        本文进而用直通估计器补回梯度并做了对照实验，以检验该项“本应”带来多少收益。
   \item \textbf{主实验结果。}在因果存在性口径下，5 折平均
         $P=0.6812$、$R=0.6225$、$\bm{F_1=0.6493}$，
         其中句内 $F_1=0.7745$、跨句 $F_1=0.5882$。
         相较 iLIF 论文在 ESC 上报告的存在性 $F_1=62.5$（句内 71.2 / 跨句 59.1），
-        整体提升 2.4 个点，且增益主要来自句内场景。
+        整体提升 2.4 个点，且增益主要来自句内场景。由于 CGL 在本实现中不产生梯度，
+        这一增益应归因于 SGM 与 DSCRM 两处结构改动，而不是上下文对齐。
 \end{enumerate}
 
 \vspace{0.5em}
@@ -68,8 +79,14 @@ offline scheme, and validate it against 545 Qwen3.8-27B annotations: sentence-le
 We further vectorize five hotspots of the original implementation, achieving a 12--17$\times$
 speed-up with numerically identical behaviour (loss difference 0, prediction difference
 $<1.2\times10^{-7}$), and cut peak VRAM from 6\,824\,MB to 2\,483\,MB via gradient checkpointing.
-The final 5-fold result is $P=0.6812$, $R=0.6225$, $F_1=0.6493$,
-improving over the iLIF existence baseline of 62.5 on ESC.
+Most importantly, we show that the released implementation's Context Grounding Loss
+is \emph{non-differentiable}: binarizing the cosine similarity detaches the graph, so the term
+is added to the reported loss but contributes exactly zero gradient. Setting its weight to
+0, 3 or 6 therefore yields bit-identical training trajectories, which means the entire
+LLM pseudo-labelling stage has no effect on the trained model. We give a straight-through
+fix and quantify what the term could have contributed. The final 5-fold result is
+$P=0.6812$, $R=0.6225$, $F_1=0.6493$, which, since CGL is inert, must be attributed to the
+sentence graph and dual-stream modules rather than to context grounding.
 
 \vspace{0.6em}
 \noindent\textbf{Keywords:} event causality identification; document-level; graph neural network;

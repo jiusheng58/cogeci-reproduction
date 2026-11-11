@@ -1,0 +1,70 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>工程优化：12–17 倍加速</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>05 / 让 6 GB 显存跑得完</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 16, marginTop: 28 }}>
+        {[
+            { a: '47 小时', b: '4.2 小时', k: '5 折 30 轮总耗时' },
+            { a: '6,824 MB', b: '2,483 MB', k: '峰值显存（6 GB 卡内）' },
+            { a: '4.4 秒', b: '0.3 秒', k: '单文档前向+反向+step' },
+        ].map((m) => (
+            <Box key={m.k} style={{ width: 360, backgroundColor: '#F4F6F9', padding: '16px 20px', flexDirection: 'column', gap: 8 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                    <Text style={{ fontSize: 20, color: '#A7B0BE', textDecoration: 'line-through' }}>{m.a}</Text>
+                    <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#C8892A' }}>{m.b}</Text>
+                </Box>
+                <Text style={{ fontSize: 14, color: '#5B6673' }}>{m.k}</Text>
+            </Box>
+        ))}
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 34, marginTop: 30 }}>
+        <Box style={{ width: 560, flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>瓶颈不在算力，而在调度</Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.7 }}>
+                实测 GPU 利用率只有 8%：模型里多处用 Python 循环逐事件对索引 GPU 张量，
+                每次都触发一次主机与设备往返。小显存卡上还叠加了显存换页，问题被放大。
+            </Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.7 }}>
+                改了 5 处：切片求和、删死代码、index_select、布尔掩码选边、torch.where 比结构差。
+                外加梯度检查点，用重计算换显存。
+            </Text>
+            <Text style={{ fontSize: 13, color: '#8A94A6', lineHeight: 1.6 }}>
+                若把 4.4 秒/篇误判为"卡太小"，直接租卡，成本就白花了。
+            </Text>
+        </Box>
+
+        <Box style={{ width: 540, flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>改写必须证明等价</Text>
+            <Table
+                style={{ width: '100%', height: 210 }}
+                defaultTextStyle={{ fontSize: 14, textAlign: 'left', color: '#33404F' }}
+                defaultCellStyle={{
+                    border: {
+                        left: { width: 0, color: '#FFFFFF' },
+                        right: { width: 0, color: '#FFFFFF' },
+                        top: { width: 0, color: '#FFFFFF' },
+                        bottom: { width: 1, color: '#E2E8F0' },
+                    },
+                    padding: '0px 12px',
+                }}
+                cells={[
+                    [
+                        { text: '比对项', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '最大绝对偏差', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                    ],
+                    ['前向损失', '0（逐位相同）'],
+                    ['预测概率', '< 1.2 × 10⁻⁷'],
+                    ['梯度范数', '< 10⁻⁸'],
+                    ['图边选取', 'torch.equal 为真'],
+                ]}
+            />
+            <Text style={{ fontSize: 13, color: '#8A94A6', lineHeight: 1.6 }}>
+                5 处改写里有 2 处一旦出错不会报错、只会悄悄改变结果。逐项比对梯度与选边，是唯一可靠的验收方式。
+            </Text>
+        </Box>
+    </Box>
+</Slide>

@@ -1,0 +1,80 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>主结果</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>05 / ESC · 存在性口径 · 5 折交叉验证</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 36, marginTop: 28 }}>
+        <Box style={{ width: 628, flexDirection: 'column', gap: 10 }}>
+            <Table
+                style={{ width: '100%', height: 322 }}
+                defaultTextStyle={{ fontSize: 14, textAlign: 'center', color: '#33404F' }}
+                defaultCellStyle={{
+                    border: {
+                        left: { width: 0, color: '#FFFFFF' },
+                        right: { width: 0, color: '#FFFFFF' },
+                        top: { width: 0, color: '#FFFFFF' },
+                        bottom: { width: 1, color: '#E2E8F0' },
+                    },
+                }}
+                cells={[
+                    [
+                        { text: '折', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'P', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'R', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: 'F1', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '句内 F1', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                        { text: '跨句 F1', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
+                    ],
+                    ['1', '0.6920', '0.5471', '0.6110', '0.7867', '0.5223'],
+                    ['2', '0.6795', '0.6770', '0.6782', '0.7586', '0.6408'],
+                    ['3', '0.6571', '0.6182', '0.6371', '0.7865', '0.5614'],
+                    ['4', '0.6702', '0.6584', '0.6642', '0.8109', '0.5937'],
+                    ['5', '0.7075', '0.6118', '0.6562', '0.7297', '0.6229'],
+                    [
+                        { text: '均值', textStyle: { bold: true, color: '#1C3F78' }, cellStyle: { background: { color: '#EEF3FA' } } },
+                        { text: '0.6812', textStyle: { bold: true, color: '#1C3F78' }, cellStyle: { background: { color: '#EEF3FA' } } },
+                        { text: '0.6225', textStyle: { bold: true, color: '#1C3F78' }, cellStyle: { background: { color: '#EEF3FA' } } },
+                        { text: '0.6493', textStyle: { bold: true, color: '#C8892A', fontSize: 15 }, cellStyle: { background: { color: '#EEF3FA' } } },
+                        { text: '0.7745', textStyle: { bold: true, color: '#1C3F78' }, cellStyle: { background: { color: '#EEF3FA' } } },
+                        { text: '0.5882', textStyle: { bold: true, color: '#1C3F78' }, cellStyle: { background: { color: '#EEF3FA' } } },
+                    ],
+                ]}
+            />
+            <Text style={{ fontSize: 13, color: '#8A94A6' }}>F1 标准差 0.0261；每折按验证集最优轮次报告并保存权重</Text>
+        </Box>
+
+        <Box style={{ width: 472, flexDirection: 'column', gap: 12 }}>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>与 iLIF 报告值对照</Text>
+            {[
+                { k: '整体 F1', a: 62.5, b: 64.9, d: '+2.4' },
+                { k: '句内 F1', a: 71.2, b: 77.4, d: '+6.2' },
+                { k: '跨句 F1', a: 59.1, b: 58.8, d: '−0.3' },
+            ].map((r) => (
+                <Box key={r.k} style={{ flexDirection: 'column', gap: 6 }}>
+                    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 14, color: '#5B6673', fontWeight: 'bold' }}>{r.k}</Text>
+                        <Text style={{ fontSize: 14, color: r.d.startsWith('+') ? '#C8892A' : '#A7B0BE', fontWeight: 'bold' }}>{r.d}</Text>
+                    </Box>
+                    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 12, color: '#A7B0BE', width: 44 }}>iLIF</Text>
+                        <Box style={{ width: r.a * 4.2, height: 14, backgroundColor: '#C8D6E8' }} />
+                        <Text style={{ fontSize: 13, color: '#5B6673' }}>{r.a}</Text>
+                    </Box>
+                    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 12, color: '#1C3F78', width: 44 }}>本复现</Text>
+                        <Box style={{ width: r.b * 4.2, height: 14, backgroundColor: '#2E6CB5' }} />
+                        <Text style={{ fontSize: 13, color: '#1C3F78', fontWeight: 'bold' }}>{r.b}</Text>
+                    </Box>
+                </Box>
+            ))}
+            <Box style={{ backgroundColor: '#FFF8EC', borderLeft: '3px solid #C8892A', padding: '12px 16px', marginTop: 6 }}>
+                <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.6 }}>
+                    增益几乎全部来自句内；跨句与 iLIF 持平。而跨句对占全部事件对的 85.4%——
+                    这正是整体提升小于预期的原因。
+                </Text>
+            </Box>
+        </Box>
+    </Box>
+</Slide>

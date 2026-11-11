@@ -3,7 +3,7 @@
 
 \subsection{实验设置}
 
-全部实验采用 5 折交叉验证。需要注意的是，仓库实现中的"折"并非对 258 篇文档整体做随机划分，
+全部实验采用 5 折交叉验证。需要注意的是，仓库实现中的“折”并非对 258 篇文档整体做随机划分，
 而是按话题顺序切分后逐折训练，每折的验证集为固定的 dev 文档集合，其余为训练集。
 评价指标沿用 \texttt{utils.py} 中的 \texttt{compute\_f1}：只统计正类
 （\texttt{target} $\ne 0$）的精确率、召回率与 $F_1$，再按句内（intra）与跨句（cross）
@@ -41,7 +41,7 @@
 \subsection{与 iLIF 基线的对比}
 
 由于未能取得 CogECI 原文，本文以 iLIF 论文报告的存在性识别结果作为合理性锚点
-（表~\ref{tab:vs}）。CogECI 的骨架即 iLIF，且其立论是"超越此前 SOTA"，
+（表~\ref{tab:vs}）。CogECI 的骨架即 iLIF，且其立论是“超越此前 SOTA”，
 因此复现结果应不低于 iLIF 的水平。
 
 \begin{table}[H]
@@ -75,7 +75,7 @@ iLIF~\cite{ilif}       & 62.5 & 71.2 & 59.1\\
         高质量的 grounding 信号让 CGL 在句内流上几乎不引入噪声。
   \item \textbf{跨句基本持平甚至略低}（$-0.3$）。跨句流的伪标签依赖区间近似，
         与 LLM 答案的 $F_1$ 仅 0.746，噪声明显更大；同时跨句因果本身依赖篇章级证据链，
-        仅靠"事件对表示靠近某几句"难以完整刻画。这提示 CGL 的收益主要落在
+        仅靠“事件对表示靠近某几句”难以完整刻画。这提示 CGL 的收益主要落在
         证据较局部的场景。
 \end{itemize}
 
@@ -93,27 +93,130 @@ iLIF~\cite{ilif}       & 62.5 & 71.2 & 59.1\\
 虽然提升了正类权重，但模型整体仍倾向于保守预测。若下游任务更看重召回（如风险预警），
 可通过降低判定阈值换取召回，$F_1$ 在本文的阈值下并非最优工作点。
 
-\subsection{消融实验}
+\subsection{消融实验：三点对照与一处方法缺陷}
 \label{sec:ablation}
 
-为验证 CGL 的实际作用，本文构造两个对照实验。CGL 的权重在原实现中被硬编码为 $w=6$
-（第~\ref{sec:method} 节），本文将其参数化为 \texttt{--cgl\_w} 后即可在不改动其他任何
-代码路径的前提下切换：
+\subsubsection{实验设计}
+
+原实现把 CGL 的权重硬编码为 $w=6$（第~\ref{sec:method} 节）。本文将其参数化为
+\texttt{--cgl\_w}，默认值保持 6 不变，从而可以在\emph{不改动其他任何代码路径}的前提下
+切换该项。据此构造三点对照：
 
 \begin{itemize}
-  \item \textbf{E0（去 CGL）}：\texttt{--cgl\_w 0}。此时 CGL 项恒为零、梯度为零，
-        实现上直接跳过该分支的计算，数值上等价于"完全去掉上下文对齐"，
-        模型退化为"iLIF 骨架 + SGM + DSCRM"。
-  \item \textbf{E2（弱 CGL）}：\texttt{--cgl\_w 3}，权重减半，考察该超参的敏感性。
+  \item \textbf{E1（原实现）}：\texttt{--cgl\_w 6}，即完整方法；
+  \item \textbf{E2（权重减半）}：\texttt{--cgl\_w 3}，考察该超参的敏感性；
+  \item \textbf{E0（去 CGL）}：\texttt{--cgl\_w 0}。此时该项恒为 0、梯度恒为 0，
+        实现上直接跳过该分支以省算力，数值与“保留分支但权重为零”完全等价，
+        模型退化为“iLIF 骨架 + SGM + DSCRM”。
 \end{itemize}
 
-%%ABLATION_PLACEHOLDER%%
+由于主实验已用满 5 折，消融统一只跑 Fold~1 以控制时间。这一折足以支撑本节的结论，
+理由见下文。
+
+\subsubsection{结果：三个配置的训练轨迹逐位相同}
+
+\begin{table}[H]
+\centering
+\caption{CGL 权重三点对照（ESC，Fold 1）}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lcccccccc}
+\toprule
+配置 & $w$ & $P$ & $R$ & $\bm{F_1}$ & 句内 $F_1$ & 跨句 $F_1$ & 最优轮次 & 首轮损失\\
+\midrule
+%%ABL_BEGIN%%
+E1（原实现） & 6 & 0.6920 & 0.5471 & 0.6110 & 0.7867 & 0.5223 & 26 & 8.7606\\
+E0（去 CGL） & 0 & 0.6920 & 0.5471 & 0.6110 & 0.7867 & 0.5223 & 26 & 0.1026\\
+%%ABL_END%%
+\bottomrule
+\end{tabular}
+\end{table}
+
+表~\ref{tab:ablation} 中首先值得注意的是“首轮损失”一列的异常：$w=6$ 时首轮训练损失为
+8.7606，而 $w=0$ 时仅 0.1026，相差 8.66。这说明 CGL 项确实被计算，并以远大于主损失的
+数值进入了目标函数。然而再看最终指标：两行的 $P$、$R$、$F_1$、句内 $F_1$、跨句 $F_1$、
+最优轮次\emph{全部相同}，而且不是“四舍五入后相同”，是 16 位有效数字逐位相同
+（$F_1$ 均为 \texttt{0.6110381077529566}，跨句 $F_1$ 均为 \texttt{0.5222551923867566}）。
+
+“消融影响很小”与“消融根本没有进入优化”在报表上看起来相似，含义却完全不同。
+逐位相同排除了前一种解释：只要有非零梯度，哪怕极小，浮点更新也会在第一步就分叉，
+并在 30 轮后放大成可见差异。这一“异常”促使我们对 CGL 的实现做代码级核查。
+
+\subsubsection{根因：二值化切断了计算图}
+
+问题出在 CGL 的计算代码中（行号对应本文公开仓库的 \texttt{model/model.py}）：
+
+\begin{lstlisting}[language=Python]
+cosine_sim = F.cosine_similarity(event_expanded, sentence_expanded, dim=2)
+flag = float(1 / cosine_sim.size(1))
+cosine_sim = (cosine_sim > flag).float()        # <-- 计算图在此断开
+sen_loss = self.bce_loss(cosine_sim.float(), all_senlable.float())
+loss += (1 / (iteration + 1)) * w * sen_loss
+\end{lstlisting}
+
+在 PyTorch 中，比较运算 \texttt{(x > y)} 返回的是一个不可导的布尔张量，
+\texttt{.float()} 只做 dtype 转换，\emph{不会}恢复计算图。因此赋值之后，
+\texttt{cosine\_sim} 已经成为一个与模型参数没有任何梯度联系的常量。
+本文用独立脚本验证了这一点：
+
+\begin{lstlisting}
+cos.requires_grad   = True
+binar.requires_grad = False     grad_fn = None
+单独对 binar 反传: RuntimeError: element 0 of tensors does not
+                  require grad and does not have a grad_fn
+\end{lstlisting}
+
+即 $\partial \mathcal{L}_{\mathrm{CGL}} / \partial \theta \equiv 0$。CGL 项只改变
+被打印出来的 \texttt{loss} 标量，不改变任何参数的梯度，也不参与任何参数更新。
+
+追查伪标签在代码中的流向可以确认影响范围：\texttt{all\_senlable} 与
+\texttt{all\_senlable2} 由 \texttt{sen.csv}、\texttt{sen\_more.csv} 读入后，
+在 \texttt{main.py} 中仅作为 \texttt{batch[8]}、\texttt{batch[9]} 透传，
+唯一的消费点就是上式的 \texttt{sen\_loss}。\textbf{也就是说，整条 Stage-1 LLM 伪标签
+链路在本实现中对模型训练没有任何贡献。}这也解释了为什么第~\ref{sec:pseudo} 节
+精心构造的伪标签——无论质量多高——都无法反映到最终指标上。
+
+需要强调两点。其一，这一缺陷与原论文的方法设计无关：论文把 CGL 作为主要贡献之一，
+但公开代码没有实现它的梯度通路。其二，这不是本文改动引入的：本文对 CGL 的唯一改动
+是把硬编码的 $w=6$ 提为命令行参数（默认值不变），二值化那一行原封未动。
+
+\subsubsection{修复尝试：直通估计}
+
+为回答“如果 CGL 真的能反传，它会有用吗”，本文实现了一个最小修复：用直通估计器
+（straight-through estimator）替换硬阈值，
+
+\begin{equation}
+\tilde{s} = \mathbb{1}\left[\cos > \tau\right] + \cos - \operatorname{sg}(\cos),
+\end{equation}
+
+其中 $\tau$ 为原实现中的阈值 $\mathrm{flag}$，$\operatorname{sg}(\cdot)$ 表示停止梯度。
+$\tilde{s}$ 的\emph{前向数值}与硬阈值完全相同（后两项相消），因此损失的读数不变，
+$w$ 的可比性也不受影响；反向时 $\partial \tilde{s} / \partial \cos = 1$，
+梯度被原样传回 \texttt{cosine\_sim}。对应新增的 \texttt{--cgl\_mode ste} 开关，
+默认值 \texttt{hard} 与原实现完全一致。
+
+选择直通估计而不是换成 Sigmoid 之类的光滑替代，是为了把变量控制到最小：
+两种模式的前向完全一致，唯一的差别就是“有没有梯度”。若 E3 与 E1 出现差异，
+差异只可能来自 CGL 的梯度。
+
+%%E3_BLOCK%%
+
+\subsubsection{迭代式推理的消融}
+
+CogECI 与 iLIF 的骨架都是迭代式推理：模型先用当前预测构造事件图、再据图更新表示，
+循环至多 $L_{\max}=9$ 轮、最少 $L_{\min}=2$ 轮，并以相邻两轮预测差异小于 $\delta=2$ 早停
+（第~\ref{sec:method} 节）。为检验这套机制是否真的必要，本文把上限压到单轮
+（\texttt{--max\_iteration 1}，记作 E4）作对照。
+
+%%E4_BLOCK%%
 
 \subsection{结果可信度的一个旁证}
 
-为排除"训练看似收敛但实际未学到有效信息"的可能，本文在正式训练前做了一次
+为排除“训练看似收敛但实际未学到有效信息”的可能，本文在正式训练前做了一次
 2 折 $\times$ 1 轮的快速检查（\texttt{--method smoke\_fast}）：$F_1$ 为 0.353 与 0.360，
 其中句内 0.645、跨句 0.066。单轮训练即达到句内 0.645 而对跨句几乎无判别力，
-恰好符合"句内可依赖局部句法、跨句需多轮迭代建图"的预期。
-这一"低轮次快照"与 30 轮的最终结果（句内 0.7745 / 跨句 0.5882）在趋势上一致，
+恰好符合“句内可依赖局部句法、跨句需多轮迭代建图”的预期。
+这一“低轮次快照”与 30 轮的最终结果（句内 0.7745 / 跨句 0.5882）在趋势上一致，
 说明模型确实在按设计的机制学习，而非仅仅拟合了标签分布。
+

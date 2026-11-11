@@ -1,0 +1,38 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: 0 }}>
+    <Box style={{ position: 'absolute', left: 0, top: 0, width: 14, height: 720, backgroundColor: '#1C3F78' }} />
+    <Box style={{ position: 'absolute', left: 14, top: 0, width: 5, height: 720, backgroundColor: '#C8D6E8' }} />
+
+    <Box style={{ position: 'absolute', left: 96, top: 96, width: 1060, flexDirection: 'column' }}>
+        <Text style={{ fontSize: 17, color: '#2E6CB5', letterSpacing: 2, fontWeight: 'bold' }}>
+            机器智能课程设计 · 第 4 个项目 · 复现报告
+        </Text>
+
+        <Text style={{ fontSize: 52, color: '#1C3F78', fontWeight: 'bold', lineHeight: 1.28, marginTop: 34 }}>
+            CogECI：面向文档级事件因果识别的
+            <br />
+            一致性图学习
+        </Text>
+
+        <Box style={{ width: 120, height: 4, backgroundColor: '#C8892A', marginTop: 30 }} />
+
+        <Text style={{ fontSize: 21, color: '#5B6673', lineHeight: 1.7, marginTop: 26 }}>
+            在 EventStoryLine 上复现两阶段框架：LLM 伪标签 + 双流因果图推理
+            <br />
+            5 折交叉验证 · 存在性口径 F
+            <span style={{ fontSize: 15 }}>1</span>
+            {' '}= 0.6493
+        </Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', left: 96, top: 556, width: 1060, flexDirection: 'row', alignItems: 'flex-end' }}>
+        <Box style={{ flexDirection: 'column', gap: 8 }}>
+            <Text style={{ fontSize: 19, color: '#1C3F78', fontWeight: 'bold' }}>第六组</Text>
+            <Text style={{ fontSize: 17, color: '#5B6673' }}>张旭　路文博</Text>
+            <Text style={{ fontSize: 15, color: '#8A94A6' }}>华中科技大学 · 电子信息与通信学院</Text>
+        </Box>
+        <Box style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <Text style={{ fontSize: 15, color: '#8A94A6' }}>2026 年 11 月</Text>
+            <Text style={{ fontSize: 13, color: '#A7B0BE' }}>github.com/jiusheng58/cogeci-reproduction</Text>
+        </Box>
+    </Box>
+</Slide>

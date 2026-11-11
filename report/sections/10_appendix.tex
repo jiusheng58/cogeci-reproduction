@@ -59,8 +59,8 @@ the causal relationship between events earthquake and injured. ...
 \end{lstlisting}
 
 两个事件分别位于第 2 句与第 0 句，LLM 返回的集合恰好是 $\{0,2\}$——
-这正是第~\ref{sec:pseudo} 节"LLM 含两个事件句 = 97.4\%"这一统计的直观来源。
-规则法在该样本上给出一致答案，也是"精确率 0.985"的具体体现。
+这正是第~\ref{sec:pseudo} 节“LLM 含两个事件句 = 97.4\%”这一统计的直观来源。
+规则法在该样本上给出一致答案，也是“精确率 0.985”的具体体现。
 
 \subsection{实验命令与日志对照}
 
@@ -75,7 +75,9 @@ the causal relationship between events earthquake and injured. ...
 \midrule
 E1 完整方法 & \texttt{--cgl\_w 6.0} & \texttt{logs\_E1\_full.txt}\\
 E0 去 CGL & \texttt{--cgl\_w 0} & \texttt{logs\_E0\_no\_cgl.txt}\\
-E2 弱 CGL & \texttt{--cgl\_w 3.0} & \texttt{logs\_E2\_cgl3.txt}\\
+E2 弱 CGL & \texttt{--cgl\_w 3.0} & \texttt{logs\_ablation.txt}\\
+E3 梯度修复 & \texttt{--cgl\_mode ste} & \texttt{logs\_ablation.txt}\\
+E4 单轮迭代 & \texttt{--max\_iteration 1} & \texttt{logs\_ablation.txt}\\
 快速检查 & \texttt{--k\_fold 2 --epoch 1} & \texttt{logout/seed\_209/}\\
 \bottomrule
 \end{tabular}
@@ -83,7 +85,7 @@ E2 弱 CGL & \texttt{--cgl\_w 3.0} & \texttt{logs\_E2\_cgl3.txt}\\
 
 \subsection{本文对原始代码的全部改动}
 
-为便于审阅，列出所有改动点。除标注"改动数值"者外，均不改变模型行为。
+为便于审阅，列出所有改动点。除标注“改动数值”者外，均不改变模型行为。
 
 \begin{table}[H]
 \centering
@@ -96,9 +98,10 @@ E2 弱 CGL & \texttt{--cgl\_w 3.0} & \texttt{logs\_E2\_cgl3.txt}\\
 \midrule
 \texttt{model/model.py} & 性能 & 5 处向量化改写（表~\ref{tab:patch}），已验证数值等价\\
 \texttt{model/model.py} & 功能 & CGL 权重 \texttt{w=6} 改为读取 \texttt{args.cgl\_w}（默认 6.0）\\
+\texttt{model/model.py} & 实验 & 新增 \texttt{--cgl\_mode ste} 直通估计分支（默认 \texttt{hard}，与原实现一致）\\
 \texttt{model/model.py} & 修复 & 删除死代码 \texttt{true\_sent}；修复 \texttt{sent\_ground} 重复追加\\
 \texttt{model/\_orig\_model.py} & 新增 & 原版备份，供等价性验证\\
-\texttt{parameter.py} & 功能 & 新增 \texttt{--grad\_ckpt}、\texttt{--cgl\_w}\\
+\texttt{parameter.py} & 功能 & 新增 \texttt{--grad\_ckpt}、\texttt{--cgl\_w}、\texttt{--cgl\_mode}、\texttt{--fold\_start/--fold\_end}\\
 \texttt{main.py} & 功能 & 每折按验证 $F_1$ 保存权重至 \texttt{checkpoints/<method>/}\\
 \texttt{main.py} & 兼容 & 日志目录 \texttt{seed:\{s\}} $\to$ \texttt{seed\_\{s\}}（Windows 不允许冒号）\\
 \texttt{utils.py} & 补齐 & 自 iLIF 取得\\

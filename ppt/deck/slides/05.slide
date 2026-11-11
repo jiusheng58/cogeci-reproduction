@@ -1,0 +1,67 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>复现障碍：仓库是不完整的</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>03 / 先让它跑起来</Text>
+    </Box>
+
+    <Text style={{ fontSize: 16, color: '#5B6673', lineHeight: 1.7, marginTop: 20 }}>
+        官方仓库发布时缺失四类文件。最致命的不是报错，而是<span style={{ fontWeight: 'bold', color: '#C0392B' }}>不报错</span>。
+    </Text>
+
+    <Table
+        style={{ width: '100%', height: 288, marginTop: 18 }}
+        defaultTextStyle={{ fontSize: 14, textAlign: 'left', color: '#33404F' }}
+        defaultCellStyle={{
+            border: {
+                left: { width: 0, color: '#FFFFFF' },
+                right: { width: 0, color: '#FFFFFF' },
+                top: { width: 0, color: '#FFFFFF' },
+                bottom: { width: 1, color: '#E2E8F0' },
+            },
+            padding: '0px 14px',
+        }}
+        cells={[
+            [
+                { text: '缺失文件', textStyle: { bold: true, color: '#FFFFFF', fontSize: 14 }, cellStyle: { background: { color: '#1C3F78' } } },
+                { text: '后果', textStyle: { bold: true, color: '#FFFFFF', fontSize: 14 }, cellStyle: { background: { color: '#1C3F78' } } },
+                { text: '本项目的处理', textStyle: { bold: true, color: '#FFFFFF', fontSize: 14 }, cellStyle: { background: { color: '#1C3F78' } } },
+            ],
+            [
+                { text: 'utils.py', textStyle: { bold: true } },
+                { text: 'main.py 直接 import，缺它程序根本起不来', textStyle: { color: '#C0392B' } },
+                '由同作者 iLIF 仓库取得，四个函数齐全',
+            ],
+            [
+                { text: 'data/database/exist/*.pkl', textStyle: { bold: true } },
+                '没有特征缓存，无法训练',
+                '自 iLIF 补齐二分类版本',
+            ],
+            [
+                { text: 'data/examples/llm/*.csv', textStyle: { bold: true } },
+                { text: '伪标签缺失时静默回退全零，训练照常跑但学不到东西', textStyle: { color: '#C0392B' } },
+                '本项目用规则法生成，并在训练前做终检',
+            ],
+            [
+                { text: 'model/bert-base-uncased/', textStyle: { bold: true } },
+                '无预训练权重',
+                '镜像下载，440,449,768 字节已校验',
+            ],
+        ]}
+    />
+
+    <Box style={{ flexDirection: 'row', gap: 20, marginTop: 26 }}>
+        <Box style={{ width: 600, backgroundColor: '#FDF3F2', borderLeft: '3px solid #C0392B', padding: '16px 20px', flexDirection: 'column', gap: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#C0392B' }}>静默降级是复现中最危险的一类问题</Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>
+                伪标签读数失败会退化为零矩阵，几十小时后给出一个"看起来正常"的低分结果，且极难定位。
+            </Text>
+        </Box>
+        <Box style={{ width: 512, backgroundColor: '#F4F6F9', padding: '16px 20px', flexDirection: 'column', gap: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>因此加了训练前终检</Text>
+            <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>
+                核对 doc_id 唯一、answer 条数等于事件对数、编号不越界、覆盖全部文档，四项全过才允许启动。
+            </Text>
+        </Box>
+    </Box>
+</Slide>

@@ -3,7 +3,7 @@
 
 \subsection{Stage 1 的原始设计}
 
-CogECI 的第一阶段要为每个因果正例事件对标注"支撑该因果关系的句子集合"。
+CogECI 的第一阶段要为每个因果正例事件对标注“支撑该因果关系的句子集合”。
 按 \texttt{llm/run\_llm\_processing.py} 中的提示词，输入是给每句编号后的整篇文档
 与两个事件的触发词及其释义，输出是句子编号列表：
 
@@ -36,15 +36,15 @@ Document :{list(numbered_sentences)}
 \caption{LLM 打标模型的实际可用性}
 \label{tab:llm}
 \small
-\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\begin{tabularx}{\textwidth}{@{}p{4.6cm} l X@{}}
 \toprule
 模型 & 结果 & 原因\\
 \midrule
 qwen3.8-27b & dev 全量 545 条完成，train 至 1\,752 次额度耗尽 & 质量最好（strict 平均选 2.19 句）\\
 qwen3.8-flash & 同批额度耗尽 & 质量接近 27b\\
 deepseek-v4-flash-0731 & 不可用 & 强制思考，\texttt{/no\_think} 无效，思考占满 \texttt{max\_tokens} 导致正文为空\\
-qwen3.8-2.4t-a95b & 不可用 & 网关强制 \texttt{enable\_thinking=True}，单次 $>$120\,s 超时\\
-kimi-k3 / qwen3.8-omni-flash & 有额度 & 备用，已在部分 train 文档上使用\\
+qwen3.8-2.4t-a95b & 不可用 & 网关强制 \texttt{enable\_}\allowbreak\texttt{thinking}\allowbreak\texttt{=True}，单次 $>$120\,s 超时\\
+kimi-k3\newline qwen3.8-omni-flash & 有额度 & 备用，已在部分 train 文档上使用\\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -53,14 +53,14 @@ kimi-k3 / qwen3.8-omni-flash & 有额度 & 备用，已在部分 train 文档上
 关闭思考（\texttt{enable\_thinking=False}）后降至约 2.6\,s，此时才具备可行性。
 deepseek 系列的失败模式值得记录：思考内容会先占满 \texttt{max\_tokens}，
 返回的 \texttt{finish\_reason} 为 \texttt{length} 而正文为空，
-表现为"83\% 解析失败"；把 \texttt{max\_tokens} 提到 2048 仍不够。
+表现为“83\% 解析失败”；把 \texttt{max\_tokens} 提到 2048 仍不够。
 
 打标进行到 train 的第 1\,752 条时免费额度耗尽，脚本按设计立即中止并保留已写入的 CSV。
 此时距离完成 train 全量还差 3\,181 条。训练侧不能无限等待，因此需要离线替代方案。
 
 \subsection{规则法伪标签}
 
-\paragraph{设计原则}伪标签的用途是约束 CGL——让事件对表示靠近"支撑句"、远离其他句。
+\paragraph{设计原则}伪标签的用途是约束 CGL——让事件对表示靠近“支撑句”、远离其他句。
 因此它不需要复现 LLM 的完整推理，只需要给出\emph{高置信度的最小支撑集}。
 注意到一个关键事实：因果关系的两个事件各自所在的句子\emph{必然}是支撑句之一，
 这是不依赖任何模型的硬约束。据此设计两条规则（记事件 $a,b$ 的所在句编号为
@@ -76,7 +76,7 @@ $s_1=\sigma(a)$、$s_2=\sigma(b)$）：
 
 \paragraph{为什么要对区间封顶}跨句因果的完整区间在长文档上会失控：
 train 的 3\,358 个句间正例中，区间长超过 10 句的占 11.5\%，覆盖超过半篇的占 19.9\%，
-最长跨 55 句（等于整篇）。这类标签会让 CGL 的 BCE 目标退化成"全部为 1"，
+最长跨 55 句（等于整篇）。这类标签会让 CGL 的 BCE 目标退化成“全部为 1”，
 反而把句向量表示拉平，失去区分度。封顶后，在 dev 上与 LLM loose 答案的
 句级 $F_1$ 由 0.723 提升到 \textbf{0.746}，标签密度也更接近 LLM 的实际输出
 （规则 2.77 句/对 vs.\ LLM 3.13 句/对）。
@@ -91,7 +91,8 @@ train 的 3\,358 个句间正例中，区间长超过 10 句的占 11.5\%，覆�
 \centering
 \caption{规则法伪标签与 Qwen3.8-27B 标注的一致性（dev，545 个正例）}
 \label{tab:agree}
-\small
+\footnotesize
+\setlength{\tabcolsep}{3.2pt}
 \begin{tabular}{lcccccc}
 \toprule
 对比 & 句级 $P$ & 句级 $R$ & 句级 $F_1$ & pair 级 $F_1$
@@ -107,13 +108,13 @@ train 的 3\,358 个句间正例中，区间长超过 10 句的占 11.5\%，覆�
 
 \begin{enumerate}
   \item \textbf{精确率 0.985}：规则选出的句子有 98.5\% 也被 LLM 选中。
-        这意味着规则法几乎不引入噪声——对 CGL 这类"用伪标签约束表示"的弱监督而言，
+        这意味着规则法几乎不引入噪声——对 CGL 这类“用伪标签约束表示”的弱监督而言，
         精度比召回更重要，因为错误的负样本会把真实支撑句推远。
-  \item \textbf{"LLM 含两个事件句" 达 97.4\%}：这是不依赖任何规则设计的硬指标，
-        只问"LLM 的答案里是否包含两个事件所在句"。97.4\% 说明
+  \item \textbf{“LLM 含两个事件句” 达 97.4\%}：这是不依赖任何规则设计的硬指标，
+        只问“LLM 的答案里是否包含两个事件所在句”。97.4\% 说明
         \textbf{规则法捕捉的正是 LLM 选句的核心}，而非巧合。
   \item \textbf{召回 0.753 偏低}：LLM 平均会多选约 0.5 句，典型情况是把标题句也算作支撑，
-        或多带一句因果承接句。这部分属于"可选上下文"，不是"必需上下文"。
+        或多带一句因果承接句。这部分属于“可选上下文”，不是“必需上下文”。
 \end{enumerate}
 
 进一步按事件对类型拆分，用于在多个候选规则中选定最终方案，见表~\ref{tab:reltype}。
@@ -162,10 +163,10 @@ inter & LLM loose & \textbf{D $=$ 区间封顶 8 $\pm1$} & 329 & \textbf{0.748} 
 \end{table}
 
 此外，全部 LLM 调用的完整提示词与原始响应都写入了 JSONL 留痕文件
-（\texttt{raw\_*.jsonl}），满足课程"保留提示与原始响应"的要求。
+（\texttt{raw\_*.jsonl}），满足课程“保留提示与原始响应”的要求。
 
 \paragraph{合规性说明}本方案不触碰测试标签：伪标签按文档生成；5 折交叉验证中，
 测试折的文档不参与训练，其伪标签不产生梯度；参与梯度更新的只有训练折文档，
 而这些标签来自文档\emph{自身}的 gold 因果标注——这正是原论文
-"label-informed pseudo labelling"的设计。差异在于：本次伪标签由规则而非 LLM 生成，
+“label-informed pseudo labelling”的设计。差异在于：本次伪标签由规则而非 LLM 生成，
 这一点已在第~\ref{sec:discussion} 节列为局限。

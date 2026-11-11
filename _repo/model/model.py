@@ -94,6 +94,7 @@ class bertCSRModel(nn.Module):
         self.w = args.w
         # CGL 权重（原实现硬编码 6）；参数化以支持消融，默认 6.0 与原实现等价
         self.cgl_w = float(getattr(args, 'cgl_w', 6.0))
+        self.cgl_mode = getattr(args, 'cgl_mode', 'hard')
         self.max_iteration = args.max_iteration + 1
         self.threshold = args.threshold
         self.min_iteration = args.min_iteration
@@ -293,7 +294,12 @@ class bertCSRModel(nn.Module):
                 cosine_sim=F.cosine_similarity(event_expanded,sentence_expanded,dim=2)# 事件对数，句子数
                 # cosine_sim = F.softmax(cosine_sim,dim=1)
                 flag=float(1/cosine_sim.size(1))
-                cosine_sim=(cosine_sim>flag).float()
+                if getattr(self, 'cgl_mode', 'hard') == 'ste':
+                    # 直通估计：前向值与硬阈值 (cos>flag) 完全相同，反向把梯度直通给 cosine_sim。
+                    # 用于检验「若 CGL 真的能反传，是否带来增益」——原实现此处切断计算图
+                    cosine_sim = (cosine_sim > flag).float() + cosine_sim - cosine_sim.detach()
+                else:
+                    cosine_sim=(cosine_sim>flag).float()
                 sen_loss = self.bce_loss(cosine_sim.float(), all_senlable.float())
                 loss += (1 / (iteration + 1))* w *sen_loss
             iteration += 1

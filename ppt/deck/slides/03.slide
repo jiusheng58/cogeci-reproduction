@@ -1,0 +1,71 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>任务与数据</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>01 / 什么算对</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 44, marginTop: 34 }}>
+        {/* 左：任务与口径 */}
+        <Box style={{ width: 640, flexDirection: 'column', gap: 18 }}>
+            <Text style={{ fontSize: 17, color: '#5B6673', lineHeight: 1.75 }}>
+                给定一篇文档的句子序列与事件提及，判断候选事件对之间<span style={{ color: '#1C3F78', fontWeight: 'bold' }}>是否存在因果关系</span>。
+                句内（intra）依赖句法线索，跨句（inter）需要跨句聚合证据，后者是文档级 ECI 的主要难点。
+            </Text>
+
+            <Box style={{ backgroundColor: '#F4F6F9', padding: '18px 22px', flexDirection: 'column', gap: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1C3F78' }}>两种评测口径，数字不可混比</Text>
+                <Box style={{ flexDirection: 'row', gap: 16 }}>
+                    <Box style={{ width: 280, flexDirection: 'column', gap: 6 }}>
+                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#2E6CB5' }}>存在性 · 二分类</Text>
+                        <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.5 }}>NONE / CAUSAL，不区分谁是因谁是果</Text>
+                    </Box>
+                    <Box style={{ width: 280, flexDirection: 'column', gap: 6 }}>
+                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#8A94A6' }}>方向性 · 三分类</Text>
+                        <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.5 }}>NONE / CAUSE / EFFECT，须判方向</Text>
+                    </Box>
+                </Box>
+            </Box>
+
+            <Box style={{ flexDirection: 'column', gap: 8 }}>
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>判定为存在性口径的三条证据</Text>
+                {[
+                    '默认 pkl 的 target 只取 {0,1}，正例全为 1，方向已被统一',
+                    'parameter.py 把类别数由 3 改为 2，cache_path 默认指向 exist',
+                    '正例数 4933 + 545 = 5478，与 iLIF 预处理后完全吻合',
+                ].map((t, i) => (
+                    <Box key={i} style={{ flexDirection: 'row', gap: 10 }}>
+                        <Text style={{ fontSize: 14, color: '#C8892A', fontWeight: 'bold' }}>—</Text>
+                        <Text style={{ fontSize: 15, color: '#5B6673', lineHeight: 1.5 }}>{t}</Text>
+                    </Box>
+                ))}
+            </Box>
+        </Box>
+
+        {/* 右：数据卡 */}
+        <Box style={{ width: 452, flexDirection: 'column', gap: 14 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>EventStoryLine v0.9 实测规模</Text>
+            {[
+                { k: '258', u: '篇文档', d: '233 训练 / 25 验证，22 个话题' },
+                { k: '70,579', u: '事件对', d: '句内 10,347 · 跨句 60,232' },
+                { k: '5,478', u: '因果正例', d: '占比 7.76%，极端不平衡' },
+            ].map((c) => (
+                <Box key={c.k} style={{
+                    backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0',
+                    borderLeft: '3px solid #1C3F78', padding: '14px 20px',
+                    flexDirection: 'row', alignItems: 'center', gap: 16,
+                }}>
+                    <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1C3F78', width: 150 }}>{c.k}</Text>
+                    <Box style={{ flexDirection: 'column', gap: 4 }}>
+                        <Text style={{ fontSize: 15, color: '#1C3F78', fontWeight: 'bold' }}>{c.u}</Text>
+                        <Text style={{ fontSize: 13, color: '#8A94A6' }}>{c.d}</Text>
+                    </Box>
+                </Box>
+            ))}
+            <Text style={{ fontSize: 13, color: '#A7B0BE', lineHeight: 1.6, marginTop: 4 }}>
+                正例数少于文献常见的 5,625，是因为 iLIF 预处理剔除了与事件共指冲突的样本，
+                并要求因果图满足 DAG 约束——差异来自预处理，不是统计错误。
+            </Text>
+        </Box>
+    </Box>
+</Slide>

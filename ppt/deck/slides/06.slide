@@ -1,0 +1,48 @@
+<Slide style={{ width: 1280, height: 720, backgroundColor: '#FFFFFF', padding: '56px 72px' }}>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ width: 5, height: 34, backgroundColor: '#1C3F78' }} />
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1C3F78' }}>伪标签：从 LLM 到规则法</Text>
+        <Text style={{ fontSize: 16, color: '#A7B0BE', marginLeft: 8 }}>04 / 本复现最实的一块</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', gap: 14, marginTop: 30 }}>
+        {[
+            { k: '原方案', t: 'LLM 逐对打标', d: '只对正例调用，共 5,478 次；两个变体约 10,956 次，单份 4.33M 输入 token' },
+            { k: '遇阻', t: '免费额度耗尽', d: '跑到第 1,752 次中止；另有两个模型因强制思考、单次超 120 秒不可用' },
+            { k: '替代', t: '规则法离线构造', d: '句内取两事件所在句；句间取区间，超过 8 句则退化为局部窗口' },
+        ].map((c, i) => (
+            <Box key={c.k} style={{ width: 360, flexDirection: 'column', gap: 9, backgroundColor: i === 2 ? '#F0F6FF' : '#F4F6F9', padding: '16px 20px', borderTop: i === 2 ? '3px solid #2E6CB5' : '3px solid #C8D6E8' }}>
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: i === 2 ? '#2E6CB5' : '#8A94A6', letterSpacing: 1 }}>{c.k}</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1C3F78' }}>{c.t}</Text>
+                <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.6 }}>{c.d}</Text>
+            </Box>
+        ))}
+    </Box>
+
+    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1C3F78', marginTop: 30 }}>
+        规则法可信吗？用已完成的 545 条 Qwen3.8-27B 标注做一致性对照
+    </Text>
+
+    <Box style={{ flexDirection: 'row', gap: 16, marginTop: 16 }}>
+        {[
+            { v: '0.985', k: '句级精确率', d: '规则选出的句子 98.5% 也被 LLM 选中', hi: true },
+            { v: '0.853', k: '句级 F1', d: '召回 0.753，LLM 平均多选约半句', hi: false },
+            { v: '97.4%', k: 'LLM 含两事件句', d: '硬指标：LLM 答案恰含两个事件所在句', hi: true },
+            { v: '0.746', k: '跨句流 F1', d: '区间封顶后，标签密度贴近 LLM 输出', hi: false },
+        ].map((m) => (
+            <Box key={m.k} style={{ width: 268, backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', padding: '16px 18px', flexDirection: 'column', gap: 5 }}>
+                <Text style={{ fontSize: 34, fontWeight: 'bold', color: m.hi ? '#C8892A' : '#1C3F78' }}>{m.v}</Text>
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>{m.k}</Text>
+                <Text style={{ fontSize: 13, color: '#8A94A6', lineHeight: 1.5 }}>{m.d}</Text>
+            </Box>
+        ))}
+    </Box>
+
+    <Box style={{ marginTop: 24, backgroundColor: '#F4F6F9', padding: '14px 20px', flexDirection: 'row', gap: 18 }}>
+        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1C3F78', width: 96 }}>怎么读这组数</Text>
+        <Text style={{ fontSize: 14, color: '#5B6673', lineHeight: 1.6 }}>
+            精度 0.985 说明规则几乎不引入噪声；97.4% 说明它捕捉的正是 LLM 选句的核心，不是巧合。
+            召回偏低意味着这是"高精度、稍低召回"的保守替代——对弱监督而言，错负样本比漏正样本更伤。
+        </Text>
+    </Box>
+</Slide>

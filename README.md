@@ -19,6 +19,49 @@ ESC，因果存在性二分类口径，5 折交叉验证：
 
 5 折明细：`P=0.6812`、`R=0.6225`、`F1=0.6493 ± 0.0261`。
 
+> **增益应归因于 SGM 与 DSCRM，而非 CGL。** 见下方「重要发现」。
+
+## 重要发现：官方实现的 CGL 项没有梯度
+
+`_repo/model/model.py` 中，上下文对齐损失（CGL）在计算前对余弦相似度做了硬阈值二值化：
+
+```python
+cosine_sim = F.cosine_similarity(event_expanded, sentence_expanded, dim=2)
+flag = float(1 / cosine_sim.size(1))
+cosine_sim = (cosine_sim > flag).float()      # ← 计算图在此断开
+sen_loss = self.bce_loss(cosine_sim.float(), all_senlable.float())
+loss += (1 / (iteration + 1)) * w * sen_loss
+```
+
+PyTorch 中比较运算返回**不可导的布尔张量**，`.float()` 只做 dtype 转换、不会恢复计算图。
+实测 `binar.requires_grad == False`、`grad_fn is None`，单独反传直接抛
+`RuntimeError: element 0 of tensors does not require grad`。因此
+**∂L_CGL/∂θ ≡ 0**：该项只改变打印出来的 loss 数值，不改变任何参数的梯度。
+
+影响范围：`all_senlable` / `all_senlable2` 由 `sen.csv`、`sen_more.csv` 读入后仅作为
+`batch[8]`、`batch[9]` 透传，唯一的消费点就是上面的 `sen_loss`。也就是说，
+**整条 Stage-1 LLM 伪标签链路对本实现的训练没有任何贡献**。
+
+证据（Fold 1，其余配置完全相同）：
+
+| 配置 | `--cgl_w` | 首轮损失 | F1 | 句内 | 跨句 | 最优轮次 |
+|---|---|---|---|---|---|---|
+| E1 原实现 | 6 | 8.7606 | 0.6110 | 0.7867 | 0.5223 | 26 |
+| E0 去 CGL | 0 | 0.1026 | 0.6110 | 0.7867 | 0.5223 | 26 |
+
+两行不是「四舍五入后相同」，而是 16 位有效数字逐位相同
+（`F1 = 0.6110381077529566`，跨句 `F1 = 0.5222551923867566`）。
+首轮损失相差 8.66，说明这一项确实被算进了 loss —— 它只是不产生梯度。
+
+**修复**：新增 `--cgl_mode ste`，用直通估计器替换硬阈值
+
+```
+s̃ = 1[cos > τ] + cos − sg(cos)
+```
+
+前向数值与硬阈值完全相同（后两项相消），反向把梯度原样传回。默认值 `hard`
+与原实现一致，不改变任何现有行为的数值。
+
 ## 本仓库相对官方仓库的改动
 
 官方仓库发布时缺失 4 类文件，其中 `utils.py` 被 `main.py` 直接 import，缺失即无法启动；
@@ -29,7 +72,8 @@ ESC，因果存在性二分类口径，5 折交叉验证：
 | `_repo/model/model.py` | 性能 | 5 处向量化改写，实测加速 12–17×，已验证数值等价 |
 | `_repo/model/model.py` | 功能 | CGL 权重 `w=6` 硬编码 → `--cgl_w`（默认 6.0） |
 | `_repo/model/model.py` | 修复 | 删除死代码 `true_sent`；修复 `sent_ground` 重复 append |
-| `_repo/parameter.py` | 功能 | 新增 `--grad_ckpt`、`--cgl_w` |
+| `_repo/model/model.py` | 实验 | 新增 `--cgl_mode ste`（直通估计，默认 `hard` 与原实现一致） |
+| `_repo/parameter.py` | 功能 | 新增 `--grad_ckpt`、`--cgl_w`、`--cgl_mode`、`--fold_start/--fold_end` |
 | `_repo/main.py` | 功能 | 每折按验证 F1 保存权重到 `checkpoints/<method>/` |
 | `_repo/main.py` | 兼容 | 日志目录 `seed:{s}` → `seed_{s}`（Windows 不允许冒号） |
 | `_repo/utils.py` | 补齐 | 取自 iLIF 仓库 |
@@ -101,7 +145,16 @@ cd _repo
   --grad_ckpt --cgl_w 6.0 --method E1_full_rulelabels
 ```
 
-消融：`--cgl_w 0`（E0，去 CGL）/ `--cgl_w 3`（E2），`--method` 相应改名。
+消融（加 `--fold_start 1 --fold_end 1` 只跑 Fold 1）：
+
+| 实验 | 关键参数 |
+|---|---|
+| E0 去 CGL | `--cgl_w 0` |
+| E2 弱 CGL | `--cgl_w 3` |
+| E3 梯度修复 | `--cgl_mode ste` |
+| E4 单轮迭代 | `--max_iteration 1` |
+
+一键串行：`bash run_ablation.sh`（日志写入 `logs_ablation.txt`）。
 
 ### 5. 辅助脚本
 
