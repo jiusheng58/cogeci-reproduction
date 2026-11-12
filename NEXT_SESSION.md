@@ -1,40 +1,32 @@
-# 下次会话续办清单（2026-11-12 00:35 保存现场）
+# 项目状态（2026-11-12 23:20 更新：已交付）
 
-## 当前进度
-- 报告 `report/report.pdf`：32 页，0 错误 / 0 Overfull / 0 未定义引用，已含 CGL 缺陷完整章节。
-- PPT `ppt/deck/deck.pptx`：11 页，新增 CGL 发现页，已全部 lint 通过并目视核对。
-- 代码改动已提交 git（commit 047210a），**推送失败**（代理 502），本地 commit 完整。
+## 已完成
+- 报告 `report/report.pdf`：**33 页**，0 错误 / 0 Overfull / 0 未定义引用 / 0 残留占位符
+  - 6.5 节：CGL 权重对照（E0 vs E1 逐位相同）→ 根因（计算图断开）→ 影响 → STE 修复 → **6.5.5 同预算对照结果**
+  - 8.2 增益归因（SGM+DSCRM）、8.3 CGL 推断，均已与实测对齐
+- PPT `ppt/deck/deck.pptx`：11 页，含 CGL 发现页与归因页，全部 lint 通过
+- 提交包 `智能课设2026第4个项目_第六组_张旭+路文博.rar`（997 KB，在 `交付/`）
+  - 内含：报告 PDF、汇报 PPT、LaTeX 源文件 zip、说明 txt（Unicode 文件名已验证）
+- GitHub 已推到 master（1208b2e）
 
-## 核心发现（已完成，勿丢）
-官方实现 `(cosine_sim > flag).float()` 切断计算图 → CGL 无梯度。
-E0(w=0) 与 E1(w=6) Fold1 逐位相同（F1=0.6110381077529566，最优轮次均 26），
-首轮损失 0.1026 vs 8.7606。整条 Stage-1 伪标签链路对训练零贡献。
+## 实验结论（本项目的核心发现）
+1. **CGL 无梯度**：`(cosine_sim > flag).float()` 切断计算图。
+   E0(w=0) 与 E1(w=6) Fold1 16 位有效数字逐位相同（F1=0.6110381077529566），
+   首轮损失 0.1026 vs 8.7606。整条 Stage-1 伪标签链路对训练零贡献。
+2. **修复后反而更差**：STE 让梯度接通（首轮 loss 9.1017，同量级于 E1），
+   但 E3 前 12 轮每一轮都落后 E1（均值 0.3354 vs 0.4319，低 9.7 点），
+   差距随训练收窄（第 1 轮 -0.124 → 第 12 轮 -0.020）。
+3. 主结果 5 折：P=0.6812 / R=0.6225 / F1=0.6493±0.0261（句内 0.7745 / 跨句 0.5882）。
 
-## 消融实验状态
-| 实验 | 状态 | 已得数据 |
-|---|---|---|
-| E0 (cgl_w=0) | 完成 Fold1，与 E1 逐位相同 | logs_E0_no_cgl.txt |
-| E1 (cgl_w=6) | 5 折完成 | logs_E1_full.txt，F1=0.6493±0.0261 |
-| E3 (STE 修复) | **被关机中断于第 12/30 轮** | logs_ablation.txt；第 12 轮 valid F1=0.4519（对照 E1 同轮 0.44），首轮 loss 9.1017 vs E1 8.7606 → 梯度确实生效 |
-| E2 (cgl_w=3) | 未跑（排在 E3 后被杀） | — |
-| E4 (单轮迭代) | 未跑（同上） | — |
-
-E3 权重 `_repo/checkpoints/E3_ste_termgrad/fold1_best.pt`（best valid F1=0.4519）已保存。
-
-## 待办
-1. 决定 E3：重跑完（约 2 小时）`bash run_ablation.sh`，或用已有的 12 轮轨迹写成"梯度生效但收敛更慢"的部分结果。
-2. 填报告：跑 `python tools/make_ablation_table.py --write`（解析日志自动填表），
-   再把 `report/sections/06_experiment.tex` 的 `%%E3_BLOCK%%`、`%%E4_BLOCK%%` 替换成正文；
-   若 E2/E4 不跑，删掉对应小节与附录表里的两行。
-3. 重编译：`cd report && xelatex report.tex` 两遍（记得 `export MIKTEX_DISABLE_UPDATE_CHECK=1`）。
-4. 推送 GitHub：`git -c http.proxy=http://127.0.0.1:49153 -c https.proxy=http://127.0.0.1:49153 push origin master`
-   （若 502，换网络时段重试；分支是 master 不是 main）。
-5. 打包：`bash make_package.sh` → 生成 `智能课设2026第4个项目_第六组_张旭+路文博.rar`。
-   （WinRAR 已装到 `C:\Program Files\WinRAR\rar.exe`）
-6. PPT 第 11 页若有数字变化（页数/结论），同步改后重新 upsert。
+## 若还要继续（可选，非必须）
+- E3 补跑满 30 轮（6 GB 卡约 3 小时/折，需先解决显存换页；
+  可改用代码注释里给出的等价矩阵乘写法，实测最大偏差 5.6e-8）。
+- 结构化消融：分别去掉 SGM / DSCRM 重跑，才能真正拆开两者的贡献（报告 8.2 已列为后续第一项）。
+- 方向口径（三分类）实验：pkl 已随仓库提供，参照值 iLIF 47.8。
 
 ## 环境备忘
-- 训练 venv：`D:\wangbclass\cogeci\.venv`（PyTorch 2.6.0+cu126）
-- xelatex：`C:\Users\Lenovo\AppData\Local\Programs\MiKTeX\miktex\bin\x64\`（需 PATH + MIKTEX_DISABLE_UPDATE_CHECK=1）
-- 渲染 PDF 用 `D:\wangbclass\cogeci\.venv\Scripts\python.exe` 的 fitz
-- 代理：env 里有 `http_proxy=http://127.0.0.1:49153`
+- xelatex：`C:\Users\Lenovo\AppData\Local\Programs\MiKTeX\miktex\bin\x64`（需 `MIKTEX_DISABLE_UPDATE_CHECK=1`）
+- 渲染 PDF：`D:\wangbclass\cogeci\.venv\Scripts\python.exe` 里的 `fitz`
+- git 推送：代理端口每次会话会变，取 `env | grep -i https_proxy` 的值显式传入；分支是 `master`
+- 打包：`bash make_package.sh`（WinRAR 在 `C:\Program Files\WinRAR\rar.exe`）
+- 注意：Bash 工具对 `report/sections/*.tex` 的写入会被拦，改用 Edit 工具
