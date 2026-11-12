@@ -16,7 +16,7 @@ REPORT = ROOT / "report" / "sections" / "06_experiment.tex"
 
 LOG_E1 = ROOT / "logs_E1_full.txt"
 LOG_E0 = ROOT / "logs_E0_no_cgl.txt"
-LOG_ABL = ROOT / "logs_ablation.txt"
+LOG_ABL = ROOT / "logs_E3_ste_12ep.txt"
 
 FOLD_RE = re.compile(
     r"Fold 1: R (?P<r>[0-9.]+) P (?P<p>[0-9.]+) F (?P<f>[0-9.]+) "

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# 消融实验队列（串行执行，每个配置只跑 Fold 1，约 60-70 分钟/个）
-#   E3_ste     : CGL 直通梯度修复（前向与 E1 完全一致，仅补回梯度）—— 检验 CGL 若可反传是否有增益
-#   E2_cgl_w3  : CGL 权重减半 —— 三点对照（0 / 3 / 6）
-#   E4_iter1   : 单轮迭代（L_max=1）—— 迭代式 ECG 机制消融
+# 消融实验队列（串行执行，每个配置只跑 Fold 1）
+#   E3_ste_termgrad : CGL 直通梯度修复（前向与 E1 完全一致，仅补回梯度）
+#   E4_iter1        : 单轮迭代（L_max=1）—— 迭代式 ECG 机制消融（可选，取消注释即跑）
 set -u
 cd "$(dirname "$0")/_repo" || exit 1
 PY=../.venv/Scripts/python.exe
@@ -20,7 +19,6 @@ run () {
 }
 
 run E3_ste_termgrad --cgl_w 6.0 --cgl_mode ste --max_iteration 9
-run E2_cgl_w3       --cgl_w 3.0 --cgl_mode hard --max_iteration 9
-run E4_iter1        --cgl_w 6.0 --cgl_mode hard --max_iteration 1
+# run E4_iter1 --cgl_w 6.0 --cgl_mode hard --max_iteration 1
 
 echo "ALL DONE $(date '+%F %T')"

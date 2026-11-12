@@ -292,7 +292,11 @@ class bertCSRModel(nn.Module):
                 event_expanded = event_pair.unsqueeze(1).expand(-1, sent_emb_n.size(0),-1)  # [事件对数, 句子数, 768]
                 sentence_expanded = sent_emb_n.squeeze(1).unsqueeze(0).expand(event_pair.size(0), -1,-1)  # [事件对数, 句子数, 768]
                 cosine_sim=F.cosine_similarity(event_expanded,sentence_expanded,dim=2)# 事件对数，句子数
-                # cosine_sim = F.softmax(cosine_sim,dim=1)
+                # 注：这里构造的 (事件对数, 句子数, 768) 扩展张量在 STE 模式下必须保留以便反传，
+                #   在 6 GB 卡上会触及显存换页（实测慢约 3 倍）。如需提速，可换成数学等价的矩阵乘
+                #     cosine_sim = event_pair @ sent_emb_n.squeeze(1).t()
+                #   （两者已验证最大偏差 5.6e-8）。本文件默认保留原写法，
+                #   以保证与报告 6.5.4 节的实验轨迹逐位对应。
                 flag=float(1/cosine_sim.size(1))
                 if getattr(self, 'cgl_mode', 'hard') == 'ste':
                     # 直通估计：前向值与硬阈值 (cos>flag) 完全相同，反向把梯度直通给 cosine_sim。

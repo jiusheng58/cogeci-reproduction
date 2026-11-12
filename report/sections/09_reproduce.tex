@@ -95,8 +95,9 @@ cd _repo
   --grad_ckpt --cgl_w 6.0 --method E1_full_rulelabels
 \end{lstlisting}
 
-\noindent 消融实验只需改 \texttt{--cgl\_w}：E0 取 \texttt{0}，E2 取 \texttt{3}，
-并把 \texttt{--method} 相应改为 \texttt{E0\_no\_cgl} / \texttt{E2\_cgl\_w3}。
+\noindent 消融实验只需改 \texttt{--cgl\_w}：E0 取 \texttt{0}，并把 \texttt{--method} 改为
+\texttt{E0\_no\_cgl}；E3 取 \texttt{--cgl\_mode ste}（权重仍为 6），\texttt{--method} 改为
+\texttt{E3\_ste\_termgrad}。再加 \texttt{--fold\_start 1 --fold\_end 1} 可只跑 Fold 1。
 
 \paragraph{步骤 5：一致性对照（可选）}
 

@@ -7,7 +7,7 @@
 
     <Box style={{ flexDirection: 'row', gap: 32, marginTop: 36 }}>
         <Box style={{ width: 544, flexDirection: 'column', gap: 10 }}>
-            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>现象：权重取 0 / 3 / 6，结果一模一样</Text>
+            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1C3F78' }}>现象：权重取 0 与 6，结果一模一样</Text>
             <Table
                 style={{ width: '100%', height: 216 }}
                 defaultTextStyle={{ fontSize: 14, textAlign: 'center', color: '#33404F' }}
@@ -28,7 +28,6 @@
                         { text: '最优轮次', textStyle: { bold: true, color: '#FFFFFF' }, cellStyle: { background: { color: '#1C3F78' } } },
                     ],
                     ['E1 原实现', '6', '8.7606', '0.6110', '26'],
-                    ['E2 权重减半', '3', '—', '0.6110', '26'],
                     ['E0 去 CGL', '0', '0.1026', '0.6110', '26'],
                 ]}
             />
@@ -72,7 +71,7 @@
             <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1C3F78' }}>修复：直通估计，前向不变只补梯度</Text>
             <Text style={{ fontSize: 13, color: '#5B6673', lineHeight: 1.65 }}>
                 把二值化改为 1[cos &gt; τ] + cos − sg(cos)：前向与硬阈值完全相同，反向把梯度原样传回。
-                修复后首轮损失由 8.76 变 9.10，说明梯度确实进来了。
+                修复后首轮损失由 8.76 变 9.10，且前 12 轮验证 F1 每一轮都落后于原实现（平均低 9.7 个点）。
             </Text>
         </Box>
     </Box>

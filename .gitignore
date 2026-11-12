@@ -51,3 +51,7 @@ report/_*.log
 ppt/deck/_*.png
 ppt/deck/deck_v1.pptx
 ppt/deck/.slidep/
+
+# ---- 提交包（本地生成） ----
+交付/
+*.rar

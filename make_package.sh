@@ -62,7 +62,7 @@ cat > "$OUT/${NAME}_说明.txt" <<TXT
 小组：第六组    成员：张旭、路文博
 
 提交内容
-  1. ${NAME}_报告.pdf          —— 复现报告（LaTeX 排版，32 页）
+  1. ${NAME}_报告.pdf          —— 复现报告（LaTeX 排版，33 页）
   2. ${NAME}_汇报PPT.pptx      —— 汇报幻灯片（11 页）
   3. ${NAME}_LaTeX源文件.zip   —— 报告的全部 LaTeX 源码，可独立编译
 
